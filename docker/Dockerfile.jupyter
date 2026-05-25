@@ -1,0 +1,35 @@
+FROM python:3.10-slim-bookworm
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends openjdk-17-jre-headless && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+
+RUN pip install --no-cache-dir \
+    pyspark \
+    notebook \
+    jupyterlab \
+    pandas \
+    pyarrow \
+    kafka-python \
+    findspark \
+    pyyaml \
+    matplotlib \
+    seaborn
+
+WORKDIR /app
+
+COPY batch/ /app/batch/
+COPY config/ /app/config/
+COPY streaming/ /app/streaming/
+
+ENV PYTHONPATH=/app
+
+RUN mkdir -p /app/data/raw /app/artifacts /opt/notebooks
+
+EXPOSE 8888 4040
+
+CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token=''"]

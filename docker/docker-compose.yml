@@ -1,0 +1,162 @@
+name: clime-peru
+
+services:
+
+  kafka:
+    image: apache/kafka:4.2.0
+    container_name: clime-kafka
+    restart: unless-stopped
+    ports:
+      - "19092:19092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:19092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168
+    networks:
+      clime-net:
+        aliases:
+          - kafka
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.9.0
+    container_name: clime-kafka-exporter
+    restart: unless-stopped
+    command:
+      - --kafka.server=kafka:9092
+    depends_on:
+      - kafka
+    ports:
+      - "19308:9308"
+    networks:
+      clime-net:
+        aliases:
+          - kafka-exporter
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: clime-prometheus
+    restart: unless-stopped
+    depends_on:
+      - kafka-exporter
+    ports:
+      - "19090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+    networks:
+      clime-net:
+        aliases:
+          - prometheus
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: clime-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    ports:
+      - "13000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      clime-net:
+        aliases:
+          - grafana
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: clime-kafka-ui
+    restart: unless-stopped
+    depends_on:
+      - kafka
+    ports:
+      - "18085:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: clime-peru
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    networks:
+      clime-net:
+        aliases:
+          - kafka-ui
+
+  jupyter:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.jupyter
+    container_name: clime-jupyter
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+      - "4040:4040"
+    volumes:
+      - ../data:/app/data
+      - ../artifacts:/app/artifacts
+      - ./notebooks:/opt/notebooks
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    networks:
+      - clime-net
+
+  supabase-bridge:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.streaming
+    container_name: clime-supabase-bridge
+    restart: unless-stopped
+    depends_on:
+      - kafka
+    command: ["python", "-m", "streaming.supabase_kafka_bridge"]
+    networks:
+      - clime-net
+
+  spark-streaming:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.streaming
+    container_name: clime-spark-streaming
+    restart: unless-stopped
+    depends_on:
+      - kafka
+    volumes:
+      - ../artifacts:/app/artifacts
+    environment:
+      - SPARK_DRIVER_MEMORY=2g
+    command: ["python", "-m", "streaming.spark_streaming_processor", "--mode", "kafka"]
+    networks:
+      - clime-net
+
+  dashboard:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dashboard
+    container_name: clime-dashboard
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    volumes:
+      - ../artifacts:/app/artifacts
+      - ../data:/app/data
+    environment:
+      ARTIFACTS_PATH: /app/artifacts
+    networks:
+      - clime-net
+
+networks:
+  clime-net:
+    driver: bridge
+
+volumes:
+  grafana_data:

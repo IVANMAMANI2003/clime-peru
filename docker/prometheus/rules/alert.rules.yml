@@ -1,0 +1,31 @@
+groups:
+  - name: kafka_alerts
+    interval: 30s
+    rules:
+      - alert: KafkaExporterDown
+        expr: up{job="kafka-exporter"} == 0
+        for: 1m
+        annotations:
+          summary: "Kafka Exporter is down"
+          description: "Prometheus cannot reach the Kafka Exporter for more than 1 minute."
+
+      - alert: HighKafkaLag
+        expr: kafka_consumergroup_lag > 100
+        for: 2m
+        annotations:
+          summary: "High Kafka consumer lag"
+          description: "Consumer group {{ $labels.consumergroup }} has lag > 100 on topic {{ $labels.topic }}."
+
+      - alert: UnderReplicatedPartitions
+        expr: kafka_topic_partition_under_replicated_partitions > 0
+        for: 1m
+        annotations:
+          summary: "Under-replicated partitions detected"
+          description: "Topic {{ $labels.topic }} has under-replicated partitions."
+
+      - alert: KafkaBrokerDown
+        expr: kafka_brokers < 1
+        for: 1m
+        annotations:
+          summary: "No Kafka brokers available"
+          description: "Kafka broker count is less than 1."

@@ -1,0 +1,53 @@
+{
+  "title": "Kafka Overview - ClimePeru",
+  "uid": "kafka-overview-clime",
+  "tags": ["kafka", "clime-peru"],
+  "schemaVersion": 36,
+  "version": 1,
+  "panels": [
+    {
+      "title": "Kafka Brokers",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "kafka_brokers",
+          "legendFormat": "Brokers"
+        }
+      ]
+    },
+    {
+      "title": "Kafka Exporter Status",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "expr": "up{job=\"kafka-exporter\"}",
+          "legendFormat": "Status"
+        }
+      ]
+    },
+    {
+      "title": "Consumer Lag",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "kafka_consumergroup_lag",
+          "legendFormat": "{{topic}} - {{consumergroup}}"
+        }
+      ]
+    },
+    {
+      "title": "Messages Per Topic",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+      "targets": [
+        {
+          "expr": "kafka_topic_partition_current_offset",
+          "legendFormat": "{{topic}}"
+        }
+      ]
+    }
+  ]
+}

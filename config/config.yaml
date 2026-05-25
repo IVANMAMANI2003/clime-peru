@@ -1,0 +1,74 @@
+application:
+  name: "clime-peru"
+  version: "1.0.0"
+  environment: "development"
+  log_level: "INFO"
+
+spark:
+  app_name: "ClimePeruETL"
+  master: "local[*]"
+  memory: "2g"
+  cores: "2"
+  adaptive_enabled: true
+  coalesce_partitions_enabled: true
+  parquet_compression: "snappy"
+
+paths:
+  base: "/app"
+  input: "/app/data/raw"
+  output: "/app/artifacts/weather_data"
+  metadata: "/app/artifacts/stations_metadata.parquet"
+  logs: "/app/logs"
+
+kafka:
+  bootstrap_servers: "kafka:9092"
+  external_bootstrap: "localhost:19092"
+  topic: "clima-puno"
+  topic_anomalias: "clima-anomalias"
+  consumer_group: "clime-peru-consumer-group"
+  auto_offset_reset: "earliest"
+  enable_auto_commit: true
+  session_timeout_ms: 30000
+  max_poll_records: 500
+
+supabase:
+  url: "https://mangrxgusewzgtewoayx.supabase.co"
+  api_key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1hbmdyeGd1c2V3emd0ZXdvYXl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3NzA5MzUsImV4cCI6MjA5MTM0NjkzNX0.ZkKvxC0M2WCp5JABUTfCNgh6rcTWKDYYP9S2qymmM48"
+  table: "grupo_3_air_quality"
+  poll_interval_seconds: 5
+  realtime_enabled: false
+  order_column: "created_at"
+
+etl:
+  input_pattern: "*.txt"
+  partition_columns: ["department", "province", "district", "year"]
+  date_format: "yyyy-M-d"
+  null_values: [-99.9, "-99.9", "NA", "null"]
+
+sensor:
+  min_temperature: -20.0
+  max_temperature: 40.0
+  anomaly_threshold_sigma: 2.0
+
+dashboard:
+  host: "0.0.0.0"
+  port: 8501
+  title: "CimaPerú - Sistema de Monitoreo Climático"
+  page_icon: "🌤️"
+  layout: "wide"
+
+streaming:
+  trigger_interval: "5 seconds"
+  watermark: "30 seconds"
+  window_duration: "1 minute"
+  window_slide: "1 minute"
+  output_mode: "append"
+  checkpoint_location: "/app/artifacts/checkpoints"
+  output_parquet: "/app/artifacts/output/clima_streaming"
+
+api:
+  cors_origins:
+    - "http://localhost:8501"
+    - "http://localhost:3000"
+  timeout_seconds: 30
+  max_retries: 3
