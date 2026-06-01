@@ -1,0 +1,972 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "title": "Sensores — Variables por Estación",
+  "uid": "sensor-variables-clime",
+  "tags": ["clime-peru", "sensors"],
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "browser",
+  "editable": true,
+  "refresh": "15s",
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "annotations": {
+    "list": [
+      {
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "ALERTS{alertname=~\"SensorAnomalyDetected|SensorCriticalAnomalyScore|SensorHighAnomalyScore\"}",
+        "titleFormat": "{{ alertname }}",
+        "textFormat": "{{ station }}: z-score {{ Value }}",
+        "tagKeys": "alertname,station",
+        "enable": true,
+        "iconColor": "red",
+        "name": "Alertas de Anomalías"
+      },
+      {
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "ALERTS{alertname=~\"SensorStaleData|TopicNotReceivingData|BridgeDown\"}",
+        "titleFormat": "{{ alertname }}",
+        "textFormat": "{{ topic }}: sin datos",
+        "tagKeys": "alertname,topic",
+        "enable": true,
+        "iconColor": "orange",
+        "name": "Alertas de Conectividad"
+      }
+    ]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "station",
+        "type": "custom",
+        "label": "Estación",
+        "query": "grupo_2, grupo_3, grupo_4, Todas",
+        "current": { "text": "Todas", "value": ".*" },
+        "includeAll": false,
+        "multi": true,
+        "allValue": ".*",
+        "options": [
+          { "text": "Todas", "value": ".*" },
+          { "text": "Grupo 2 (PUNO/LAMPA/LAMPA)", "value": "grupo_2" },
+          { "text": "Grupo 3 (PUNO/PUNO/PUNO)", "value": "grupo_3" },
+          { "text": "Grupo 4 (PUNO/AZANGARO/AZANGARO)", "value": "grupo_4" }
+        ]
+      },
+      {
+        "name": "variable",
+        "type": "custom",
+        "label": "Variable",
+        "query": "Todas, Temperatura, Humedad, Presión, IAQ, eCO₂, VOC, Altitud",
+        "current": { "text": "Todas", "value": ".*" },
+        "multi": true,
+        "options": [
+          { "text": "Todas", "value": ".*" },
+          { "text": "Temperatura", "value": "sensor_temperature_celsius" },
+          { "text": "Humedad", "value": "sensor_humidity_percent" },
+          { "text": "Presión", "value": "sensor_pressure_hpa" },
+          { "text": "IAQ", "value": "sensor_iaq_index" },
+          { "text": "eCO₂", "value": "sensor_eco2_ppm" },
+          { "text": "VOC", "value": "sensor_voc_ppb" },
+          { "text": "Altitud", "value": "sensor_altitude_m" }
+        ]
+      }
+    ]
+  },
+  "panels": [
+    {
+      "title": "Resumen de Llegada de Datos",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "title": "Mensajes por Topic",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "targets": [
+        { "expr": "kafka_topic_offset{topic=~\"clima-grupo_.*\", topic!~\".*-anomalias\"}", "legendFormat": "{{topic}}" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "palette-classic" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green" } ] }
+        }
+      },
+      "description": "Total de mensajes acumulados en cada topic de datos crudos"
+    },
+    {
+      "title": "Tasa de Llegada (msg/min)",
+      "type": "timeseries",
+      "gridPos": { "h": 4, "w": 8, "x": 4, "y": 1 },
+      "targets": [
+        { "expr": "rate(kafka_topic_offset{topic=~\"clima-grupo_.*\", topic!~\".*-anomalias\"}[1m]) * 60", "legendFormat": "{{topic}}" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps",
+          "color": { "mode": "palette-classic" },
+          "custom": { "showPoints": "never" }
+        }
+      },
+      "description": "Velocidad de llegada de mensajes por minuto por topic"
+    },
+    {
+      "title": "Consumer Lag",
+      "type": "timeseries",
+      "gridPos": { "h": 4, "w": 8, "x": 12, "y": 1 },
+      "targets": [
+        { "expr": "kafka_consumergroup_lag{consumergroup=\"dashboard-consumer\"}", "legendFormat": "{{topic}}" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green" }, { "value": 50, "color": "yellow" }, { "value": 100, "color": "red" } ] },
+          "custom": { "showPoints": "never" }
+        }
+      },
+      "description": "Lag del consumer dashboard-consumer por topic (debe ser 0)"
+    },
+    {
+      "title": "Última Actualización",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+      "targets": [
+        { "expr": "time() - exporter_last_update_timestamp{topic=~\"clima-grupo_.*\", topic!~\".*-anomalias\"}", "legendFormat": "{{topic}}" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green" }, { "value": 30, "color": "yellow" }, { "value": 60, "color": "red" } ] }
+        }
+      },
+      "description": "Segundos desde la última lectura actualizada por topic"
+    },
+
+    {
+      "title": "Temperatura",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 }
+    },
+    {
+      "title": "Temperatura Actual — Grupo 2 (PUNO/LAMPA)",
+      "type": "gauge",
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 6 },
+      "targets": [
+        { "expr": "sensor_temperature_celsius{station=\"grupo_2\"}", "legendFormat": "Grupo 2" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "min": 0,
+          "max": 40,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 10 },
+              { "color": "yellow", "value": 20 },
+              { "color": "orange", "value": 28 },
+              { "color": "red", "value": 35 }
+            ]
+          }
+        }
+      },
+      "description": "Temperatura más reciente del sensor grupo_2 (LAMPA)"
+    },
+    {
+      "title": "Temperatura Actual — Grupo 3 (PUNO/PUNO)",
+      "type": "gauge",
+      "gridPos": { "h": 5, "w": 4, "x": 4, "y": 6 },
+      "targets": [
+        { "expr": "sensor_temperature_celsius{station=\"grupo_3\"}", "legendFormat": "Grupo 3" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "min": 0,
+          "max": 40,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 10 },
+              { "color": "yellow", "value": 20 },
+              { "color": "orange", "value": 28 },
+              { "color": "red", "value": 35 }
+            ]
+          }
+        }
+      },
+      "description": "Temperatura más reciente del sensor grupo_3 (PUNO)"
+    },
+    {
+      "title": "Temperatura Actual — Grupo 4 (AZANGARO)",
+      "type": "gauge",
+      "gridPos": { "h": 5, "w": 4, "x": 8, "y": 6 },
+      "targets": [
+        { "expr": "sensor_temperature_celsius{station=\"grupo_4\"}", "legendFormat": "Grupo 4" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "min": 0,
+          "max": 40,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 10 },
+              { "color": "yellow", "value": 20 },
+              { "color": "orange", "value": 28 },
+              { "color": "red", "value": 35 }
+            ]
+          }
+        }
+      },
+      "description": "Temperatura más reciente del sensor grupo_4 (AZANGARO)"
+    },
+    {
+      "title": "Temperatura — Histórico 3 Sensores",
+      "type": "timeseries",
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 6 },
+      "targets": [
+        { "expr": "sensor_temperature_celsius{station=~\"$station\"}", "legendFormat": "{{department}}/{{province}} ({{station}})" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "showPoints": "always",
+            "pointSize": 6,
+            "lineWidth": 2
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 10 },
+              { "color": "yellow", "value": 20 },
+              { "color": "orange", "value": 28 },
+              { "color": "red", "value": 35 }
+            ]
+          }
+        }
+      },
+      "description": "Evolución de temperatura en el tiempo para los 3 sensores"
+    },
+    {
+      "title": "Temperatura — Stats",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 11 },
+      "targets": [
+        { "expr": "avg(sensor_temperature_celsius{station=~\"$station\"})", "legendFormat": "Promedio" },
+        { "expr": "max(sensor_temperature_celsius{station=~\"$station\"})", "legendFormat": "Máxima" },
+        { "expr": "min(sensor_temperature_celsius{station=~\"$station\"})", "legendFormat": "Mínima" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green" } ] }
+        }
+      },
+      "description": "Estadísticas agregadas de temperatura"
+    },
+
+    {
+      "title": "Humedad",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 }
+    },
+    {
+      "title": "Humedad Actual — Grupo 2",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 15 },
+      "targets": [
+        { "expr": "sensor_humidity_percent{station=\"grupo_2\"}", "legendFormat": "Grupo 2" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 20 },
+              { "color": "green", "value": 40 },
+              { "color": "blue", "value": 70 },
+              { "color": "purple", "value": 90 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Humedad Actual — Grupo 3",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 15 },
+      "targets": [
+        { "expr": "sensor_humidity_percent{station=\"grupo_3\"}", "legendFormat": "Grupo 3" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 20 },
+              { "color": "green", "value": 40 },
+              { "color": "blue", "value": 70 },
+              { "color": "purple", "value": 90 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Humedad Actual — Grupo 4",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 15 },
+      "targets": [
+        { "expr": "sensor_humidity_percent{station=\"grupo_4\"}", "legendFormat": "Grupo 4" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 20 },
+              { "color": "green", "value": 40 },
+              { "color": "blue", "value": 70 },
+              { "color": "purple", "value": 90 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Humedad — Histórico 3 Sensores",
+      "type": "timeseries",
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 15 },
+      "targets": [
+        { "expr": "sensor_humidity_percent{station=~\"$station\"}", "legendFormat": "{{department}}/{{province}} ({{station}})" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": { "mode": "palette-classic" },
+          "custom": { "showPoints": "always", "pointSize": 6, "lineWidth": 2 },
+          "min": 0,
+          "max": 100
+        }
+      },
+      "description": "Evolución de humedad para los 3 sensores"
+    },
+
+    {
+      "title": "Presión Atmosférica",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 19 }
+    },
+    {
+      "title": "Presión Actual — Grupo 2",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 20 },
+      "targets": [
+        { "expr": "sensor_pressure_hpa{station=\"grupo_2\"}", "legendFormat": "Grupo 2" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "pressurehPa",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 640 },
+              { "color": "yellow", "value": 645 },
+              { "color": "orange", "value": 650 },
+              { "color": "red", "value": 655 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Presión Actual — Grupo 3",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 4, "y": 20 },
+      "targets": [
+        { "expr": "sensor_pressure_hpa{station=\"grupo_3\"}", "legendFormat": "Grupo 3" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "pressurehPa",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 640 },
+              { "color": "yellow", "value": 645 },
+              { "color": "orange", "value": 650 },
+              { "color": "red", "value": 655 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Presión Actual — Grupo 4",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 20 },
+      "targets": [
+        { "expr": "sensor_pressure_hpa{station=\"grupo_4\"}", "legendFormat": "Grupo 4" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "pressurehPa",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 640 },
+              { "color": "yellow", "value": 645 },
+              { "color": "orange", "value": 650 },
+              { "color": "red", "value": 655 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Presión — Histórico 3 Sensores",
+      "type": "timeseries",
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 20 },
+      "targets": [
+        { "expr": "sensor_pressure_hpa{station=~\"$station\"}", "legendFormat": "{{department}}/{{province}} ({{station}})" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "pressurehPa",
+          "color": { "mode": "palette-classic" },
+          "custom": { "showPoints": "always", "pointSize": 6, "lineWidth": 2 }
+        }
+      }
+    },
+
+    {
+      "title": "Calidad del Aire",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 }
+    },
+    {
+      "title": "IAQ — Grupo 2",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 25 },
+      "targets": [
+        { "expr": "sensor_iaq_index{station=\"grupo_2\"}", "legendFormat": "Grupo 2" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "min": 0,
+          "max": 500,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "orange", "value": 100 },
+              { "color": "red", "value": 150 },
+              { "color": "purple", "value": 200 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "IAQ — Grupo 3",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 25 },
+      "targets": [
+        { "expr": "sensor_iaq_index{station=\"grupo_3\"}", "legendFormat": "Grupo 3" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "min": 0,
+          "max": 500,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "orange", "value": 100 },
+              { "color": "red", "value": 150 },
+              { "color": "purple", "value": 200 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "IAQ — Grupo 4",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 25 },
+      "targets": [
+        { "expr": "sensor_iaq_index{station=\"grupo_4\"}", "legendFormat": "Grupo 4" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "min": 0,
+          "max": 500,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "orange", "value": 100 },
+              { "color": "red", "value": 150 },
+              { "color": "purple", "value": 200 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "IAQ — Histórico 3 Sensores",
+      "type": "timeseries",
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 25 },
+      "targets": [
+        { "expr": "sensor_iaq_index{station=~\"$station\"}", "legendFormat": "{{department}}/{{province}} ({{station}})" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": { "mode": "palette-classic" },
+          "custom": { "showPoints": "always", "pointSize": 6, "lineWidth": 2 },
+          "min": 0,
+          "max": 500
+        }
+      }
+    },
+    {
+      "title": "eCO₂ (ppm) — 3 Sensores",
+      "type": "timeseries",
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 29 },
+      "targets": [
+        { "expr": "sensor_eco2_ppm{station=~\"$station\"}", "legendFormat": "{{department}}/{{province}} ({{station}})" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ppm",
+          "color": { "mode": "palette-classic" },
+          "custom": { "showPoints": "always", "pointSize": 5, "lineWidth": 2 }
+        }
+      }
+    },
+    {
+      "title": "VOC (ppb) — 3 Sensores",
+      "type": "timeseries",
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 29 },
+      "targets": [
+        { "expr": "sensor_voc_ppb{station=~\"$station\"}", "legendFormat": "{{department}}/{{province}} ({{station}})" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ppb",
+          "color": { "mode": "palette-classic" },
+          "custom": { "showPoints": "always", "pointSize": 5, "lineWidth": 2 }
+        }
+      }
+    },
+    {
+      "title": "Calidad del Aire",
+      "type": "table",
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 29 },
+      "targets": [
+        { "expr": "sensor_air_quality_info", "format": "table", "instant": true }
+      ],
+      "transformations": [
+        { "id": "organize", "options": { "excludeByName": {}, "indexByName": {}, "renameByName": { "calidad_aire": "Calidad", "department": "Departamento", "province": "Provincia", "station": "Estación" } } }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "auto" } }
+      },
+      "description": "Última clasificación de calidad del aire por sensor"
+    },
+
+    {
+      "title": "Anomalías",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 33 }
+    },
+    {
+      "title": "Anomalía Detectada",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 34 },
+      "targets": [
+        { "expr": "anomaly_detected{station=~\"$station\"}", "legendFormat": "{{station}}" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green" }, { "value": 0.5, "color": "red" } ] },
+          "max": 1,
+          "min": 0
+        }
+      },
+      "description": "1 = anomalía detectada, 0 = normal"
+    },
+    {
+      "title": "Z-Score de Anomalía",
+      "type": "timeseries",
+      "gridPos": { "h": 4, "w": 10, "x": 4, "y": 34 },
+      "targets": [
+        { "expr": "anomaly_z_score{station=~\"$station\"}", "legendFormat": "{{department}}/{{province}} ({{station}})" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1.0 },
+              { "color": "orange", "value": 1.5 },
+              { "color": "red", "value": 2.0 }
+            ]
+          },
+          "custom": { "showPoints": "always", "pointSize": 6, "lineWidth": 2 }
+        }
+      },
+      "description": "Z-score = (temperatura - promedio_historico) / desviacion_estandar"
+    },
+    {
+      "title": "Promedio Histórico vs Temperatura",
+      "type": "timeseries",
+      "gridPos": { "h": 4, "w": 10, "x": 14, "y": 34 },
+      "targets": [
+        { "expr": "sensor_temperature_celsius{station=~\"$station\"}", "legendFormat": "Temp: {{station}}" },
+        { "expr": "anomaly_historical_avg{station=~\"$station\"}", "legendFormat": "Hist Avg: {{station}}" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "color": { "mode": "palette-classic" },
+          "custom": { "showPoints": "always", "pointSize": 6, "lineWidth": 2 }
+        }
+      },
+      "description": "Comparación temperatura actual vs promedio histórico"
+    },
+    {
+      "title": "Tipo de Anomalía",
+      "type": "table",
+      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 38 },
+      "targets": [
+        { "expr": "anomaly_type_info", "format": "table", "instant": true }
+      ],
+      "transformations": [
+        { "id": "organize", "options": { "excludeByName": {}, "renameByName": { "anomalyType": "Tipo", "department": "Departamento", "province": "Provincia", "station": "Estación" } } }
+      ],
+      "description": "Clasificación de anomalía actual por sensor"
+    },
+
+    {
+      "title": "Alertas y Estado",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 41 }
+    },
+    {
+      "title": "Alertas Activas",
+      "type": "table",
+      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 42 },
+      "targets": [
+        { "expr": "ALERTS{alertstate=\"firing\"}", "format": "table", "instant": true, "legendFormat": "" }
+      ],
+      "transformations": [
+        { "id": "organize", "options": {
+            "excludeByName": { "__name__": true, "instance": true, "job": true, "alertstate": true, "severity": true },
+            "renameByName": {
+              "alertname": "Alerta",
+              "station": "Estación",
+              "department": "Depto",
+              "topic": "Topic",
+              "Value": "Valor",
+              "activeAt": "Desde"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "auto" } }
+      },
+      "description": "Alertas Prometheus actualmente activas (firing). Muestra anomalías, IAQ crítico, datos desactualizados, etc."
+    },
+    {
+      "title": "Estado de Sensores",
+      "type": "table",
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 42 },
+      "targets": [
+        { "expr": "sensor_temperature_celsius", "format": "table", "instant": true, "legendFormat": "" }
+      ],
+      "transformations": [
+        { "id": "organize", "options": {
+            "excludeByName": { "__name__": true, "instance": true, "job": true, "component": true, "environment": true },
+            "renameByName": {
+              "station": "Estación",
+              "department": "Departamento",
+              "province": "Provincia",
+              "district": "Distrito",
+              "Value": "Temp (°C)"
+            }
+          }
+        },
+        { "id": "calculateField", "options": {
+            "mode": "reduceRow",
+            "reduce": { "include": ["Temp (°C)"], "reducer": "lastNotNull" }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "auto" } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Temp (°C)" },
+            "properties": [
+              { "id": "displayName", "value": "Temperatura" },
+              { "id": "unit", "value": "celsius" },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [
+                { "color": "green" }, { "color": "yellow", "value": 15 }, { "color": "orange", "value": 25 }, { "color": "red", "value": 30 }
+              ]}}
+            ]
+          }
+        ]
+      },
+      "description": "Estado actual de cada sensor: temperatura, ubicación y última lectura"
+    },
+    {
+      "title": "Estado de Conexión — Topics",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 47 },
+      "targets": [
+        {
+          "expr": "count(kafka_topic_offset{topic=~\"clima-grupo_.*\", topic!~\".*-anomalias\"} > 0) or vector(0)",
+          "legendFormat": "Topics activos"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red" }, { "color": "green", "value": 3 } ] },
+          "min": 0,
+          "max": 3
+        }
+      },
+      "description": "Cantidad de topics con datos (deben ser 3)"
+    },
+    {
+      "title": "Última Lectura por Topic",
+      "type": "table",
+      "gridPos": { "h": 3, "w": 8, "x": 4, "y": 47 },
+      "targets": [
+        { "expr": "time() - exporter_last_update_timestamp{topic=~\"clima-grupo_.*\"}", "format": "table", "instant": true }
+      ],
+      "transformations": [
+        { "id": "organize", "options": {
+            "excludeByName": { "__name__": true, "instance": true, "job": true, "component": true, "environment": true },
+            "renameByName": { "topic": "Topic", "Value": "Edad (s)" }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "align": "auto" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green" }, { "color": "yellow", "value": 30 }, { "color": "red", "value": 60 } ] }
+        }
+      },
+      "description": "Segundos desde la última actualización por topic. Verde < 30s, Amarillo < 60s, Rojo > 60s"
+    },
+    {
+      "title": "Alertas Definidas",
+      "type": "table",
+      "gridPos": { "h": 3, "w": 12, "x": 12, "y": 47 },
+      "targets": [
+        { "expr": "count(ALERTS) by (alertname) or vector(0)", "format": "table", "instant": true }
+      ],
+      "transformations": [
+        { "id": "organize", "options": {
+            "renameByName": { "alertname": "Regla de Alerta", "Value": "Activas" }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "auto" } }
+      },
+      "description": "Lista de reglas de alerta Prometheus definidas para sensores y Kafka"
+    },
+
+    {
+      "title": "Información del Stack",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 50 }
+    },
+    {
+      "title": "Brokers Kafka",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 51 },
+      "targets": [
+        { "expr": "kafka_brokers", "legendFormat": "Brokers" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green" }, { "value": 0, "color": "red" } ] },
+          "min": 0
+        }
+      }
+    },
+    {
+      "title": "Offset por Topic",
+      "type": "table",
+      "gridPos": { "h": 3, "w": 8, "x": 4, "y": 51 },
+      "targets": [
+        { "expr": "kafka_topic_offset{topic=~\"clima-grupo_.*\"}", "format": "table", "instant": true }
+      ],
+      "transformations": [
+        { "id": "organize", "options": { "excludeByName": { "__name__": true, "instance": true, "job": true }, "renameByName": { "topic": "Topic", "Value": "Offset" } } }
+      ],
+      "description": "Offset actual de lectura para todos los topics (crudos + anomalías)"
+    },
+    {
+      "title": "Altitud (msnm)",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 12, "y": 51 },
+      "targets": [
+        { "expr": "sensor_altitude_m{station=~\"$station\"}", "legendFormat": "{{station}}: {{value}} m" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "heightM",
+          "color": { "mode": "palette-classic" }
+        }
+      }
+    },
+    {
+      "title": "Todas las variables - Serie temporal con puntos",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 48 }
+    },
+    {
+      "title": "Todas las métricas del sensor",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 49 },
+      "targets": [
+        { "expr": "sensor_temperature_celsius{station=~\"$station\"}", "legendFormat": "Temperatura (°C) - {{station}}", "refId": "A" },
+        { "expr": "sensor_humidity_percent{station=~\"$station\"}", "legendFormat": "Humedad (%) - {{station}}", "refId": "B" },
+        { "expr": "sensor_pressure_hpa{station=~\"$station\"}", "legendFormat": "Presión (hPa) - {{station}}", "refId": "C" },
+        { "expr": "sensor_iaq_index{station=~\"$station\"}", "legendFormat": "IAQ - {{station}}", "refId": "D" },
+        { "expr": "sensor_eco2_ppm{station=~\"$station\"}", "legendFormat": "eCO₂ (ppm) - {{station}}", "refId": "E" },
+        { "expr": "sensor_voc_ppb{station=~\"$station\"}", "legendFormat": "VOC (ppb) - {{station}}", "refId": "F" },
+        { "expr": "anomaly_z_score{station=~\"$station\"}", "legendFormat": "Z-score - {{station}}", "refId": "G" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "lineWidth": 1, "pointSize": 3 },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Temperatura (°C)" },
+            "properties": [
+              { "id": "unit", "value": "celsius" },
+              { "id": "custom.showPoints", "value": "always" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Humedad (%)" },
+            "properties": [
+              { "id": "unit", "value": "percent" },
+              { "id": "custom.showPoints", "value": "always" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Presión (hPa)" },
+            "properties": [
+              { "id": "unit", "value": "hectopascal" },
+              { "id": "custom.showPoints", "value": "always" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "IAQ" },
+            "properties": [
+              { "id": "custom.showPoints", "value": "always" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "eCO₂ (ppm)" },
+            "properties": [
+              { "id": "unit", "value": "ppm" },
+              { "id": "custom.showPoints", "value": "always" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "VOC (ppb)" },
+            "properties": [
+              { "id": "unit", "value": "ppb" },
+              { "id": "custom.showPoints", "value": "always" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Z-score" },
+            "properties": [
+              { "id": "custom.showPoints", "value": "always" }
+            ]
+          }
+        ]
+      },
+      "description": "Todas las variables de los sensores como series temporales con puntos visibles. Cada punto representa una lectura individual del sensor."
+    },
+    {
+      "title": "Dashboard Streamlit",
+      "type": "text",
+      "gridPos": { "h": 3, "w": 8, "x": 16, "y": 55 },
+      "options": {
+        "content": "<div style=\"text-align: center; padding: 20px;\">\n<h3 style=\"margin:0 0 8px 0;\">CimaPerú — Monitoreo en Vivo</h3>\n<p style=\"margin:4px 0;\">Variables expuestas vía Prometheus desde Kafka</p>\n<p style=\"margin:4px 0;\">Dashboard principal: <a href=\"http://localhost:8501\" target=\"_blank\">Streamlit :8501</a></p>\n<p style=\"margin:4px 0;\"><b>3 Estaciones:</b> Grupo 2 (LAMPA) · Grupo 3 (PUNO) · Grupo 4 (AZANGARO)</p>\n<p style=\"margin:4px 0;\"><b>6 Topics:</b> clima-grupo_2/3/4 + anomalías</p>\n<p style=\"margin:4px 0;\"><b>Alertas configuradas:</b> 10 reglas (anomalías, IAQ, staleness, bridges)</p>\n<p style=\"margin:4px 0;\"><small>Última actualización: cada 15s · Alertas evalúan cada 15s</small></p>\n</div>",
+        "mode": "html"
+      },
+      "type": "text"
+    }
+  ]
+}
+

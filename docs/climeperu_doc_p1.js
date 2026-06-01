@@ -175,8 +175,8 @@ function chapter1() {
     hr(),
     p("El presente documento describe la implementación de un pipeline de streaming en tiempo real para el monitoreo climático inteligente, denominado CimaPerú. El sistema integra datos de estaciones meteorológicas del SENAMHI (Servicio Nacional de Meteorología e Hidrología del Perú) procesados por un pipeline ETL batch, junto con lecturas en tiempo real provenientes de sensores de calidad de aire alojados en Supabase, para construir un flujo continuo de detección de anomalías climáticas."),
     p("El pipeline sigue una arquitectura Kappa basada en Apache Kafka como sistema de ingesta y mensajería distribuida, y Apache Spark Structured Streaming como motor de procesamiento en tiempo real. Los datos históricos de 60 estaciones meteorológicas (más de 1 millón de registros) son almacenados en formato Parquet particionado para consultas analíticas eficientes. Los datos en tiempo real fluyen desde Supabase hacia Kafka mediante un puente dedicado, y Spark procesa el stream detectando anomalías basadas en promedios históricos y desviaciones estándar."),
-    p("El sistema incluye métricas de operación exportadas a Prometheus, visualización en Grafana, un dashboard interactivo en Streamlit, y una suite completa de observabilidad con alertas configuradas para latencia, lag de consumidor y disponibilidad de servicios. Se presentan métricas de rendimiento medidas bajo diferentes configuraciones de trigger y watermark, así como una estimación de costos y escalabilidad."),
-    p("Resultado: Pipeline streaming funcional con 9 servicios contenedorizados, 1,073,151 registros históricos procesados, ingesta en tiempo real desde Supabase, detección de anomalías con umbrales configurables y visualización unificada en dashboard interactivo y Grafana."),
+    p("El sistema incluye métricas de operación exportadas a Prometheus, visualización en Grafana, un dashboard interactivo en Streamlit, almacenamiento persistente en PostgreSQL, y una suite completa de observabilidad con alertas configuradas para latencia, lag de consumidor y disponibilidad de servicios. Se presentan métricas de rendimiento medidas bajo diferentes configuraciones de trigger y watermark, así como una estimación de costos y escalabilidad."),
+    p("Resultado: Pipeline streaming funcional con 14 servicios contenedorizados, 3 estaciones monitoreadas (grupo_2, grupo_3, grupo_4), más de 366,000 registros streaming almacenados en PostgreSQL, 1,073,151 registros históricos procesados en Parquet, ingesta en tiempo real desde Supabase con checkpoint recovery, detección de anomalías con umbrales configurables y visualización unificada en dashboard interactivo y Grafana."),
   ];
 }
 
@@ -187,38 +187,44 @@ function chapter2() {
     h2("2.1 Visión General de la Arquitectura"),
     p("CimaPerú implementa una arquitectura Kappa, donde un único pipeline de streaming procesa tanto datos históricos (reprocesados) como datos en tiempo real. A diferencia de la arquitectura Lambda (que requiere dos rutas paralelas: batch y streaming), Kappa simplifica el mantenimiento al usar un solo motor de procesamiento."),
     p("La arquitectura se compone de las siguientes capas:"),
-    bullet("Fuente de datos: Archivos históricos SENAMHI (.txt) y lecturas de sensores en tiempo real desde Supabase (tabla grupo_3_air_quality)."),
-    bullet("Ingesta y mensajería: Apache Kafka 4.2.0 como backbone de mensajería distribuida, con dos tópicos: clima-puno (datos crudos de sensores) y clima-anomalias (resultados de detección)."),
-    bullet("Procesamiento streaming: Apache Spark Structured Reading 4.1.2 con modo micro-batch, ventanas de 1 minuto y watermark de 30 segundos."),
-    bullet("Almacenamiento: Datos históricos en Parquet particionado por departamento, provincia, distrito y año. Checkpoints en almacenamiento local."),
+    bullet("Fuente de datos: Archivos históricos SENAMHI (.txt) y lecturas de sensores en tiempo real desde Supabase (3 tablas: grupo_2_air_quality, grupo_3_air_quality, grupo4_air_quality)."),
+    bullet("Ingesta y mensajería: Apache Kafka 4.2.0 como backbone de mensajería distribuida, con 6 tópicos: clima-grupo_2/3/4 (datos crudos) y clima-grupo_2/3/4-anomalias (resultados de detección)."),
+    bullet("Procesamiento streaming: 3 instancias de Apache Spark Structured Streaming 4.1.2 con modo micro-batch, trigger de 5 segundos y checkpoint recovery."),
+    bullet("Almacenamiento: Datos históricos en Parquet particionado. Datos streaming en PostgreSQL (tablas sensor_data_grupo_2/3/4). Checkpoints en almacenamiento local con bind-mount."),
     bullet("Observabilidad: Prometheus para recolección de métricas, Grafana para dashboards, Kafka UI para gestión de tópicos."),
-    bullet("Visualización: Dashboard Streamlit con análisis histórico y monitoreo en tiempo real."),
+    bullet("Visualización: Dashboard Streamlit con análisis histórico y monitoreo en tiempo real con filtro por estación."),
 
     h2("2.2 Diagrama de Arquitectura"),
     p("El flujo de datos sigue la siguiente secuencia:", { bold: true }),
-    code("SENAMHI (.txt) ──[ETL Batch]──> Parquet Histórico ──[Spark Streaming]──> Kafka (clima-puno)"),
-    code("Supabase (DB) ──[Bridge/WebSocket]──> Kafka (clima-puno) ──[Spark Streaming]──> Kafka (clima-anomalias)"),
-    code("Kafka (clima-puno) ──[Kafka Exporter]──> Prometheus ──[Grafana]──> Dashboard"),
-    code("Kafka (clima-anomalias) ──[Spark Filter]──> Dashboard ─── Dashboard Streamlit (8501)"),
+    code("SENAMHI (.txt) ──[ETL Batch]──> Parquet Histórico ──[Spark Stats]──> Kafka (clima-grupo_2/3/4)"),
+    code("Supabase (3 tablas) ──[3 Bridges c/checkpoint]──> Kafka (clima-grupo_2/3/4) ──[3 Spark Streaming]──> Kafka (*-anomalias)"),
+    code("Kafka ──[Spark Streaming]──> PostgreSQL (sensor_data_grupo_2/3/4) + Parquet Streaming"),
+    code("Kafka ──[Kafka Exporter]──> Prometheus ──[Grafana]──> Kafka Overview Dashboard"),
+code("Kafka ──[Value Exporter]──> Prometheus ──[Grafana]──> Sensor Variables Dashboard"),
+    code("Dashboard Streamlit (8501) ──[consumer dashboard-consumer]──> Kafka (3 topics)"),
     ...spacer(1),
     p("Componentes del stack:", { bold: true }),
-    bullet("Kafka 4.2.0 (KRaft mode, sin Zookeeper) — 1 nodo, 2 tópicos"),
+    bullet("Kafka 4.2.0 (KRaft mode, sin Zookeeper) — 1 nodo, 6 tópicos"),
     bullet("Kafka Exporter v1.9.0 — Exporta métricas de offsets, brokers y lag"),
-    bullet("Prometheus — Scrapea cada 15s, 4 jobs de recolección"),
+    bullet("Prometheus — Scrapea cada 15s, jobs de recolección"),
     bullet("Grafana — Dashboard pre-configurado Kafka Overview, credenciales admin/admin"),
     bullet("Kafka UI — Interfaz web para gestión de tópicos en puerto 18085"),
-    bullet("Supabase Bridge — Python asyncio, WebSocket Realtime + polling REST cada 30s"),
-    bullet("Spark Streaming Processor — PySpark Structured Streaming con Kafka connector"),
-    bullet("Dashboard Streamlit — Visualización con auto-refresh cada 2s"),
+    bullet("3 Supabase Bridges — Python con checkpoint persistente, polling incremental (id > last_id), catálogo sensor_catalog.json para inyectar ubicación (department/province/district)"),
+    bullet("3 Spark Streaming Processors — PySpark Structured Streaming, uno por estación, con detección de anomalías y escritura a PostgreSQL"),
+    bullet("PostgreSQL 15 — Almacenamiento persistente de datos streaming con INSERT ON CONFLICT DO NOTHING, tablas sensor_data_grupo_2/3/4"),
+    bullet("Dashboard Streamlit — Consumer group 'dashboard-consumer', auto-refresh cada 2s, filtro por estación desde sensor_catalog.json"),
+    bullet("Kafka Value Exporter — Exporter Prometheus que lee el último mensaje de cada topic Kafka y expone todas las variables del sensor como métricas gauge (temperatura, humedad, IAQ, eCO₂, VOC, anomalías, etc.) con labels station/department/province/district"),
     bullet("Jupyter Lab — Notebooks de análisis en puerto 8888"),
 
     h2("2.3 Supuestos Técnicos"),
     bullet("Ejecución en entorno Docker single-node (WSL2 backend en Windows)."),
-    bullet("Spark opera en modo local[*] con 2 GB de memoria driver."),
+    bullet("3 instancias Spark (grupo_2/3/4) en modo local[*] con 2 GB de memoria driver cada una."),
     bullet("Kafka opera en modo KRaft con 1 partición por tópico y factor de replicación 1."),
     bullet("Los datos históricos se asumen correctos y no requieren limpieza adicional."),
     bullet("La conexión a Supabase es vía Internet; se asume disponibilidad de red."),
     bullet("Los sensores generan lecturas cada ~1 minuto en horario continuo."),
+    bullet("3 bridges independientes leen de Supabase (1 por tabla/sensor) y publican a topics Kafka dedicados."),
+    bullet("PostgreSQL almacena datos streaming con columna processed_at generada en Python (datetime.utcnow())."),
   ];
 }
 
@@ -234,10 +240,14 @@ function chapter3() {
     simpleTable(
       ["Nombre del Tópico", "Particiones", "Replicación", "Propósito"],
       [
-        ["clima-puno", "1", "1", "Recibe lecturas de sensores desde Supabase Bridge y productores externos"],
-        ["clima-anomalias", "1", "1", "Recibe solo registros clasificados como anomalías (filtro es_anomalia == 'SI')"],
+        ["clima-grupo_2", "1", "1", "Recibe lecturas del sensor grupo_2 (PUNO/LAMPA/LAMPA) desde Supabase Bridge"],
+        ["clima-grupo_3", "1", "1", "Recibe lecturas del sensor grupo_3 (PUNO/PUNO/PUNO) desde Supabase Bridge"],
+        ["clima-grupo_4", "1", "1", "Recibe lecturas del sensor grupo_4 (PUNO/AZANGARO/AZANGARO) desde Supabase Bridge"],
+        ["clima-grupo_2-anomalias", "1", "1", "Recibe anomalías detectadas por Spark para grupo_2"],
+        ["clima-grupo_3-anomalias", "1", "1", "Recibe anomalías detectadas por Spark para grupo_3"],
+        ["clima-grupo_4-anomalias", "1", "1", "Recibe anomalías detectadas por Spark para grupo_4"],
       ],
-      [2500, 1800, 1800, 5000]
+      [3200, 1500, 1500, 5000]
     ),
 
     h3("3.1.2 Comandos de Creación"),
@@ -246,15 +256,30 @@ function chapter3() {
     code("  --create --topic clima-puno --partitions 1 --replication-factor 1"),
     ...spacer(1),
 
-    h2("3.2 Productor: Puente Supabase → Kafka"),
-    p("El servicio supabase-bridge (clime-supabase-bridge) actúa como productor Kafka, leyendo datos desde la tabla grupo_3_air_quality de Supabase. Utiliza dos mecanismos de ingesta:"),
+    h2("3.2 Productores: Puentes Supabase → Kafka (3 instancias)"),
+    p("Se implementan 3 bridges independientes (clime-bridge-grupo2, clime-bridge-grupo3, clime-bridge-grupo4), cada uno leyendo desde su tabla correspondiente en Supabase. El mapeo tabla-estación se define en artifacts/sensor_catalog.json:"),
+
+    simpleTable(
+      ["Servicio Bridge", "Tabla Supabase", "Topic Kafka", "Ubicación (Dept/Prov/Dist)"],
+      [
+        ["clime-bridge-grupo2", "grupo_2_air_quality", "clima-grupo_2", "PUNO/LAMPA/LAMPA"],
+        ["clime-bridge-grupo3", "grupo_3_air_quality", "clima-grupo_3", "PUNO/PUNO/PUNO"],
+        ["clime-bridge-grupo4", "grupo4_air_quality", "clima-grupo_4", "PUNO/AZANGARO/AZANGARO"],
+      ],
+      [2800, 2500, 2500, 3200]
+    ),
+    ...spacer(1),
 
     h3("3.2.1 Mecanismo de Ingesta"),
-    bullet("Carga inicial: Al iniciar, obtiene los 500 registros más recientes vía REST API y los publica en orden cronológico al tópico clima-puno."),
-    bullet("Suscripción Realtime: Utiliza el cliente asíncrono de Supabase (WebSocket) para recibir eventos INSERT en tiempo real."),
-    bullet("Polling de respaldo: Cada 30 segundos consulta registros nuevos (id > last_id) como mecanismo de tolerancia a fallos."),
+    bullet("Carga inicial: Al iniciar, obtiene todos los registros vía REST API paginada (lotes de 1000) y los publica en orden cronológico al tópico clima-grupo_X."),
+    bullet("Polling incremental: Consulta registros nuevos (id > last_id) mediante polling periódico. El último id publicado se persiste en artifacts/bridge_checkpoints/{tabla}.json."),
+    bullet("Checkpoint recovery: Al reiniciar, el bridge lee el checkpoint y reanuda desde last_id + 1, evitando duplicados."),
 
-    h3("3.2.2 Configuración del Productor"),
+    h3("3.2.2 Inyección de Ubicación"),
+    p("Cada bridge consulta el catálogo sensor_catalog.json para obtener department, province y district de su estación, e inyecta estos campos en cada mensaje Kafka antes de publicarlo."),
+    code('{"last_id": 136028, "table": "grupo_2_air_quality", "topic": "clima-grupo_2"}'),
+
+    h3("3.2.3 Configuración del Productor"),
     code("KafkaProducer(bootstrap_servers='clime-kafka:9092', acks='all', retries=5,"),
     code("  value_serializer=lambda v: json.dumps(v).encode('utf-8'))"),
 
@@ -267,35 +292,55 @@ function chapter3() {
     code("  .option('failOnDataLoss', 'false')"),
 
     h2("3.4 Contrato de Evento"),
-    p("Cada mensaje en el tópico sigue la siguiente estructura JSON:"),
+    p("Cada mensaje en el tópico sigue la siguiente estructura JSON. Existen dos variantes:"),
+
+    h3("3.4.1 Mensaje Raw (Bridge → Topic crudo)"),
+    p("Mensaje publicado por el bridge al topic clima-grupo_X, con ubicación inyectada desde el catálogo:"),
     simpleTable(
       ["Campo", "Tipo", "Descripción", "Ejemplo"],
       [
-        ["sensor_id", "string", "Identificador único del sensor/estación", '"estacion_001"'],
-        ["temperatura", "float", "Temperatura ambiente en °C", "18.5"],
-        ["humedad", "float", "Humedad relativa en %", "65.2"],
-        ["presion", "float", "Presión atmosférica en hPa", "1013.25"],
-        ["altura", "float/null", "Altitud del sensor en msnm", "3820.0"],
-        ["iaq", "float", "Índice de calidad del aire (0-500)", "42.0"],
-        ["eco2", "float", "CO₂ equivalente en ppm", "450.0"],
-        ["voc", "float", "Compuestos orgánicos volátiles en ppb", "0.15"],
+        ["sensor_id", "string", "Identificador del sensor/estación", '"grupo_2"'],
+        ["estacion", "string", "Nombre de estación (del catálogo)", '"grupo_2"'],
+        ["department", "string", "Departamento (inyectado por bridge)", '"PUNO"'],
+        ["province", "string", "Provincia (inyectado por bridge)", '"LAMPA"'],
+        ["district", "string", "Distrito (inyectado por bridge)", '"LAMPA"'],
+        ["temperatura", "float", "Temperatura ambiente en °C", "20.82"],
+        ["humedad", "float", "Humedad relativa en %", "69.24"],
+        ["presion", "float", "Presión atmosférica en hPa", "645.31"],
+        ["altura", "float", "Altitud del sensor en msnm", "3647.39"],
+        ["iaq", "float", "Índice de calidad del aire (0-500)", "0.0"],
+        ["eco2", "float", "CO₂ equivalente en ppm", "400.0"],
+        ["voc", "float", "Compuestos orgánicos volátiles en ppb", "0.0"],
         ["calidad_aire", "string", "Clasificación de calidad del aire", '"Bueno"'],
-        ["created_at", "string", "Timestamp ISO 8601 del evento", '"2026-05-25T12:00:00Z"'],
-        ["id", "int", "ID autoincremental en Supabase", "132255"],
+        ["ts", "string", "Timestamp normalizado (sin timezone)", '"2026-04-19T22:38:06"'],
+        ["created_at", "string", "Timestamp ISO 8601 original", '"2026-04-19T22:38:06.053392"'],
+        ["id", "int", "ID autoincremental en Supabase", "1"],
       ],
-      [2200, 1500, 3500, 2200]
+      [2200, 1500, 3500, 3800]
     ),
     ...spacer(1),
-    p("Ejemplo de mensaje completo:", { bold: true }),
-    code('{"sensor_id":"estacion_001","temperatura":18.5,"humedad":65.2,"presion":1013.25,'),
-    code(' "altura":3820.0,"iaq":42.0,"eco2":450.0,"voc":0.15,"calidad_aire":"Bueno",'),
-    code(' "created_at":"2026-05-25T12:00:00Z","id":132255}'),
+
+    h3("3.4.2 Mensaje con Anomalía (Spark → Topic anomalías)"),
+    p("Mensaje enriquecido por Spark con campos de detección de anomalías, publicado al topic clima-grupo_X-anomalias:"),
+    simpleTable(
+      ["Campo", "Tipo", "Descripción", "Ejemplo"],
+      [
+        ["isAnomaly", "bool", "Indica si el registro es anómalo", "false"],
+        ["anomalyScore", "float", "Z-score: (temp - promedio) / desviación", "-0.049"],
+        ["anomalyType", "string", "Tipo: normal, crítica, alerta", '"normal"'],
+        ["promedioHistorico", "float", "Promedio histórico de temperatura", "21.12"],
+        ["desviacionEstandar", "float", "Desviación estándar histórica", "6.01"],
+        ["processedAt", "string", "Timestamp de procesamiento Spark (ISO 8601)", '"2026-05-26T16:15:01.561Z"'],
+      ],
+      [2200, 1500, 3500, 3800]
+    ),
 
     h2("3.5 Esquema de Particionado"),
-    p("Actualmente cada tópico utiliza 1 partición, suficiente para el volumen de datos actual (~1 msg/minuto). Para escalar a múltiples sensores, se propone:"),
+    p("Actualmente cada tópico utiliza 1 partición, suficiente para el volumen de datos actual (1-2 mensajes/minuto por estación). Los 3 bridges publican en paralelo a sus topics dedicados. Para escalar a más estaciones, se propone:"),
     bullet("Aumentar a N particiones (N = número de consumidores en el grupo)."),
-    bullet("Usar sensor_id como clave de partición para garantizar orden por sensor."),
+    bullet("Usar estacion como clave de partición para garantizar orden por estación."),
     bullet("Distribuir las particiones entre múltiples brokers en un cluster de 3+ nodos."),
+    bullet("Cada estación tiene su propio topic, eliminando la necesidad de filtrado por clave de partición."),
     pageBreak(),
   ];
 }

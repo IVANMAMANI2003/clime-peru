@@ -1,11 +1,12 @@
 # Dashboard — Interfaz de Visualización Streamlit
 
-Dashboard web interactivo construido con Streamlit y Plotly que integra datos históricos (Parquet) y en tiempo real (Supabase WebSocket + Kafka) para el monitoreo climático.
+Dashboard web interactivo construido con Streamlit y Plotly que integra datos históricos (Parquet), datos streaming (Kafka) y métricas del stack (Prometheus) para el monitoreo climático.
 
 ## Acceso
 
 ```
 URL: http://localhost:8501
+Consumer group Kafka: dashboard-consumer
 Auto-refresh: cada 2 segundos (pestaña Tiempo Real)
 ```
 
@@ -29,7 +30,7 @@ Carga datos del Parquet histórico (`artifacts/weather_data/`) y ofrece:
 
 ### ⏱️ Tiempo Real
 
-Lecturas de sensores vía WebSocket desde Supabase:
+Consume de Kafka mediante consumer group `dashboard-consumer` para los topics `clima-grupo_2`, `clima-grupo_3`, `clima-grupo_4`:
 
 **Métricas en tarjetas:**
 | Indicador | Descripción |
@@ -57,8 +58,7 @@ Indicadores de salud del pipeline Kafka:
 
 | Métrica | Fuente |
 |---------|--------|
-| Offset `clima-puno` | Prometheus (kafka_topic_partition_current_offset) |
-| Offset `clima-anomalias` | Prometheus |
+| Offset por tópico | Prometheus (kafka_topic_partition_current_offset) |
 | Brokers disponibles | Prometheus (kafka_brokers) |
 | Consumer Lag | Prometheus (kafka_consumergroup_lag) |
 | Conexión Kafka Exporter | Prometheus (up) |
@@ -76,8 +76,7 @@ Soporte para modo **Oscuro** y **Claro** vía toggle en la barra lateral:
 | Fuente | Método | Frecuencia |
 |--------|--------|------------|
 | Parquet histórico | `pd.read_parquet()` | Una vez al cargar la página |
-| Supabase (inicial) | REST API (`fetch_all_supabase_readings`) | 500 registros al iniciar |
-| Supabase (streaming) | WebSocket Realtime + cola asíncrona | Eventos INSERT en tiempo real |
+| Kafka (streaming) | Consumer group `dashboard-consumer` | Streaming continuo |
 | Prometheus (métricas) | REST API (`fetch_kafka_metrics`) | Cache 15s |
 
 ## Streaming Buffer
@@ -86,13 +85,14 @@ Soporte para modo **Oscuro** y **Claro** vía toggle en la barra lateral:
 StreamingBuffer(maxlen=100)  # cola thread-safe (deque)
 ```
 
-Almacena hasta 100 lecturas recientes para cálculos de ventana y gráficos.
+Almacena hasta 100 lecturas recientes para cálculos de ventana y gráficos. Normaliza timestamps: strings ISO → objetos `datetime` UTC naive.
 
 ## Arquitectura del Sidebar
 
 ```
 ⚙️ Panel de Control
 ├── 🌙/☀️ Modo Oscuro/Claro (toggle)
+├── 📡 Estación activa (selector desde sensor_catalog.json)
 └── 📡 Streaming
     ├── ⏸️/▶️ Pausar/Reanudar
     └── 🔴 EN VIVO / 🟡 PAUSADO
@@ -115,6 +115,6 @@ cd dashboard && streamlit run app.py --server.address 0.0.0.0 --server.port 8501
 | → `config/config.yaml` | Parámetros de dashboard, paths |
 | → `artifacts/weather_data/` | Lectura de Parquet histórico |
 | → `artifacts/stations_metadata.parquet` | Metadatos para mapa |
-| → `streaming/supabase_kafka_bridge.py` | Misma tabla Supabase (grupo_3_air_quality) |
+| → `artifacts/sensor_catalog.json` | Catálogo de estaciones activas |
+| → Kafka (`clima-grupo_*`) | Consumer group `dashboard-consumer` |
 | → Prometheus (http://prometheus:9090) | Consulta métricas Kafka vía API |
-| → `streaming/spark_streaming_processor.py` | Consume anomalías vía Kafka metrics |

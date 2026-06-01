@@ -1,7 +1,7 @@
 import os
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 
 import pandas as pd
@@ -17,12 +17,14 @@ from dashboard.utils import (
     load_climate_data, load_stations_metadata, get_filter_options,
     filter_data, get_variable_label, calculate_statistics,
     prepare_time_series, prepare_download_data, convert_df_to_csv,
-    fetch_all_supabase_readings, supabase_to_df, build_station_map,
+    build_station_map,
     render_metric_card, get_temp_class, get_aq_class, build_gauge_chart,
     StreamingBuffer, get_theme, get_theme_css,
-    init_supabase_realtime, drain_realtime_queue,
+    init_kafka_consumer, drain_kafka_queue,
     fetch_kafka_metrics, render_kafka_metrics_card,
-    PERU_COORDS, SUPABASE_TABLE,
+    load_sensor_config, save_sensor_config,
+    load_sensor_catalog, get_catalog_stations,
+    PERU_COORDS,
 )
 
 logger = get_logger("dashboard")
@@ -30,14 +32,14 @@ logger = get_logger("dashboard")
 
 # ── Streaming Helpers ───────────────────────────────────────────────────
 @st.cache_resource(show_spinner=False)
-def _get_realtime_queue():
-    """Crea y cachea la suscripción Realtime (persiste entre reruns)."""
-    return init_supabase_realtime()
+def _get_kafka_queue():
+    """Crea y cachea el consumer Kafka (persiste entre reruns)."""
+    return init_kafka_consumer()
 
 
 def init_streaming_buffer() -> StreamingBuffer:
     if "stream_buffer" not in st.session_state:
-        st.session_state.stream_buffer = StreamingBuffer(maxlen=100)
+        st.session_state.stream_buffer = StreamingBuffer()
     return st.session_state.stream_buffer
 
 
@@ -46,10 +48,8 @@ def init_session_state():
         st.session_state.theme = "dark"
     if "streaming_paused" not in st.session_state:
         st.session_state.streaming_paused = False
-    if "supabase_initialized" not in st.session_state:
-        st.session_state.supabase_initialized = False
     init_streaming_buffer()
-    _get_realtime_queue()  # inicia la suscripción WebSocket
+    _get_kafka_queue()  # inicia consumer Kafka
 
 
 # ── Dashboard ───────────────────────────────────────────────────────────
@@ -119,7 +119,7 @@ class ClimateDashboard:
             if st.button(
                 "⏸️  Pausar" if not paused else "▶️  Reanudar",
                 type="secondary" if not paused else "primary",
-                use_container_width=True,
+                width='stretch',
             ):
                 st.session_state.streaming_paused = not paused
                 st.rerun()
@@ -137,8 +137,7 @@ class ClimateDashboard:
             st.divider()
             st.markdown(f"""
             <div style="color:{get_theme()['text_secondary']};font-size:0.75rem;padding:8px;text-align:center;">
-                🌤️ CimaPerú v1.0<br>
-                Datos: Supabase · {SUPABASE_TABLE}
+                🌤️ CimaPerú v1.0
             </div>
             """, unsafe_allow_html=True)
 
@@ -262,7 +261,7 @@ class ClimateDashboard:
                     hovermode="x unified", height=400,
                     template=t["plotly_template"],
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
 
             st.divider()
             col_a, col_b = st.columns(2)
@@ -278,12 +277,12 @@ class ClimateDashboard:
                     paper_bgcolor=t["bg_primary"], plot_bgcolor=t["bg_primary"],
                     font=dict(color=t["text_primary"]), template=t["plotly_template"],
                 )
-                st.plotly_chart(fig_box, use_container_width=True)
+                st.plotly_chart(fig_box, width='stretch')
 
         with tab_m:
             stations_md = self._load_stations()
             if not stations_md.empty:
-                st.plotly_chart(build_station_map(stations_md), use_container_width=True)
+                st.plotly_chart(build_station_map(stations_md), width='stretch')
             else:
                 st.info("Metadatos de estaciones no disponibles.")
 
@@ -292,7 +291,7 @@ class ClimateDashboard:
             for var in filters["variables"]:
                 if var in filtered_df.columns:
                     display_cols.append(var)
-            st.dataframe(filtered_df[display_cols].head(200), use_container_width=True, height=400)
+            st.dataframe(filtered_df[display_cols].head(200), width='stretch', height=400)
             csv_df = filtered_df[display_cols].copy()
             if "date" in csv_df.columns:
                 csv_df["date"] = csv_df["date"].dt.strftime("%Y-%m-%d")
@@ -347,6 +346,41 @@ class ClimateDashboard:
                 st.markdown("#### &nbsp;")
                 rt_avg = st.checkbox("📊 Promedio móvil (3 pts)", value=False, key="rt_avg")
 
+            # ── Station selector moved from sidebar ──
+            st.divider()
+            st.markdown("#### 🏭 Estación Activa")
+            catalog_stations = get_catalog_stations()
+            station_options = {s["estacion"]: s for s in catalog_stations}
+            station_names = list(station_options.keys())
+
+            sensor_cfg = load_sensor_config()
+            active_station = sensor_cfg.get("station_name", station_names[0] if station_names else "PUNO")
+
+            sel_station = st.selectbox(
+                "Seleccionar estación", station_names if station_names else ["PUNO"],
+                index=station_names.index(active_station) if active_station in station_names else 0,
+                key="rt_station_select",
+            )
+
+            if sel_station:
+                info = station_options.get(sel_station, {})
+                dept = info.get("department", "")
+                prov = info.get("province", "")
+                dist = info.get("district", "")
+                topic = info.get("topic", f"clima-{sel_station}")
+
+                st.markdown(
+                    f'<div style="font-size:0.8rem;color:{get_theme()["text_secondary"]};">'
+                    f'📍 {dept}{" > " + prov if prov else ""}{" > " + dist if dist else ""}<br>'
+                    f'📡 Topic: {topic}</div>',
+                    unsafe_allow_html=True,
+                )
+
+                new_cfg = {"department": dept, "province": prov,
+                           "district": dist, "station_name": sel_station, "topic": topic}
+                if new_cfg != sensor_cfg:
+                    save_sensor_config(new_cfg)
+
         # ── Status bar ──
         st.markdown(f"""
         <div style="display:flex;align-items:center;gap:16px;padding:8px 16px;
@@ -361,7 +395,7 @@ class ClimateDashboard:
                 {self.buffer.count}/100 puntos · {st.session_state.get("rt_window","Última 1 hora")}
             </span>
             <span style="color:{t['text_secondary']};font-size:0.85rem;margin-left:auto;">
-                {datetime.utcnow().strftime("%H:%M:%S")} UTC
+                {datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=-5))).strftime("%H:%M:%S")} Perú
             </span>
         </div>
         """, unsafe_allow_html=True)
@@ -372,7 +406,13 @@ class ClimateDashboard:
 
         # ── Data ──
         buf_df = self.buffer.to_df()
-        latest = self.buffer.latest
+
+        # Filter by selected station
+        rt_station = st.session_state.get("rt_station_select", "")
+        if rt_station and not buf_df.empty and "sensor_id" in buf_df.columns:
+            buf_df = buf_df[buf_df["sensor_id"] == rt_station].copy()
+
+        latest = buf_df.iloc[-1].to_dict() if not buf_df.empty else None
 
         if buf_df.empty:
             st.info("⏳ Cargando datos de sensores...")
@@ -404,7 +444,7 @@ class ClimateDashboard:
                     "Temperatura Actual",
                     sub_title=f"IAQ: {latest.get('iaq', 0):.0f} · {latest.get('calidad_aire', '')}"
                 )
-                st.plotly_chart(fig_gauge, use_container_width=True)
+                st.plotly_chart(fig_gauge, width='stretch')
 
                 # Stats compactas
                 st.markdown(f"""
@@ -436,7 +476,7 @@ class ClimateDashboard:
                 show_avg=rt_avg,
                 title=f"Evolución — {rt_window}"
             )
-            st.plotly_chart(fig_line, use_container_width=True)
+            st.plotly_chart(fig_line, width='stretch')
 
         st.divider()
 
@@ -460,18 +500,11 @@ class ClimateDashboard:
         if st.session_state.streaming_paused:
             return
 
-        # 1. Vaciar cola Realtime (WebSocket) — datos llegan al instante
-        rt_queue = _get_realtime_queue()
-        new_records = drain_realtime_queue(rt_queue)
+        # Vaciar cola Kafka — datos en tiempo real desde los topics
+        kafka_queue = _get_kafka_queue()
+        new_records = drain_kafka_queue(kafka_queue)
         for r in new_records:
             self.buffer.add(r)
-
-        # 2. Carga inicial vía REST (una sola vez)
-        if not st.session_state.supabase_initialized:
-            readings = fetch_all_supabase_readings(limit=500)
-            for r in readings:
-                self.buffer.add(r)
-            st.session_state.supabase_initialized = True
 
     # ── Render Helpers ──────────────────────────────────────────────────
     def _render_metric_row(self, latest: Optional[dict], buf_df: pd.DataFrame):
@@ -652,7 +685,7 @@ class ClimateDashboard:
             margin=dict(l=10, r=50, t=10, b=30),
             **yaxes,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
         col_l, col_r = st.columns(2)
         with col_l:
@@ -677,7 +710,7 @@ class ClimateDashboard:
 
         st.dataframe(
             display,
-            use_container_width=True,
+            width='stretch',
             hide_index=True,
             column_config={c: st.column_config.NumberColumn(c, format="%.1f")
                           for c in display.columns if c not in ("Fecha/Hora", "Calidad")},

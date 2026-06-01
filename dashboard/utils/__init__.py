@@ -1,4 +1,5 @@
-import os
+﻿import os
+import json
 import random
 import time
 import asyncio
@@ -8,7 +9,7 @@ import requests
 from collections import deque
 from typing import Optional, List, Dict, Any, Tuple, Generator, Callable
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import plotly.express as px
@@ -23,7 +24,26 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "https://mangrxgusewzgtewoayx.supabase.
 SUPABASE_KEY = os.getenv("SUPABASE_API_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1hbmdyeGd1c2V3emd0ZXdvYXl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3NzA5MzUsImV4cCI6MjA5MTM0NjkzNX0.ZkKvxC0M2WCp5JABUTfCNgh6rcTWKDYYP9S2qymmM48")
 SUPABASE_TABLE = os.getenv("SUPABASE_TABLE", "grupo_3_air_quality")
 
-# ── Supabase Realtime (WebSocket) ─────────────────────────────────────
+PERU_TZ = timezone(timedelta(hours=-5))
+
+def peru_now() -> datetime:
+    return datetime.now(PERU_TZ)
+
+def utc_to_peru(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(PERU_TZ)
+
+def _normalize_ts(raw_ts: str) -> str:
+    """Normalize timestamp for fromisoformat: Z->+00:00, -05->-05:00."""
+    ts = raw_ts.replace("Z", "+00:00").strip()
+    if len(ts) >= 3 and ts[-3] in ('+', '-') and ts[-2:].isdigit():
+        if ts[-5] != ':':
+            ts += ':00'
+    return ts
+
+
+# ÔöÇÔöÇ Supabase Realtime (WebSocket) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 def _record_from_payload(payload: dict) -> Optional[dict]:
     """Convierte un payload de Realtime en un registro estandarizado."""
     try:
@@ -31,8 +51,23 @@ def _record_from_payload(payload: dict) -> Optional[dict]:
         row = data.get("new", payload if not isinstance(payload, dict) else {})
         if not row:
             return None
-        ts = str(row.get("created_at", ""))
-        ts_dt = pd.Timestamp(ts) if ts else pd.Timestamp.now()
+        raw_ts = str(row.get("created_at", ""))
+        if raw_ts:
+            try:
+                dt = datetime.fromisoformat(_normalize_ts(raw_ts))
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=PERU_TZ)
+                dt_utc = dt.astimezone(timezone.utc)
+                ts_str = dt_utc.strftime("%Y-%m-%d %H:%M:%S")
+                ts_dt = dt_utc
+            except (ValueError, TypeError):
+                dt_utc = peru_now().astimezone(timezone.utc)
+                ts_str = dt_utc.strftime("%Y-%m-%d %H:%M:%S")
+                ts_dt = dt_utc
+        else:
+            dt_utc = peru_now().astimezone(timezone.utc)
+            ts_str = dt_utc.strftime("%Y-%m-%d %H:%M:%S")
+            ts_dt = dt_utc
         return {
             "sensor_id": row.get("estacion", "supabase"),
             "temperatura": float(row.get("temperatura", 0)),
@@ -43,25 +78,22 @@ def _record_from_payload(payload: dict) -> Optional[dict]:
             "eco2": float(row.get("eco2", 400)),
             "voc": float(row.get("voc", 0)),
             "calidad_aire": str(row.get("calidad_aire", "")),
-            "timestamp": int(ts_dt.timestamp()) if ts else 0,
-            "created_at": str(ts),
-            "ts": ts_dt if pd.notna(ts_dt) else pd.Timestamp.now(),
+            "timestamp": int(ts_dt.timestamp()),
+            "latencyMs": 0,
+            "created_at": ts_str,
+            "ts": ts_dt,
         }
     except Exception:
         return None
 
 
 def init_supabase_realtime() -> Optional['queue.Queue']:
-    """Crea una suscripción Realtime a Supabase usando event loop en background thread.
-    Retorna una cola thread-safe que recibe cada nuevo registro insertado.
-    La suscripción persiste entre reruns gracias a @st.cache_resource.
-    """
+    """Subscribe to INSERT on ALL catalog tables."""
     try:
         from supabase import create_async_client
     except ImportError:
         st.warning("⚠️ 'supabase' no instalado. Usando polling REST como fallback.")
-        q: queue.Queue = queue.Queue()
-        return q
+        return queue.Queue()
 
     data_queue: queue.Queue = queue.Queue()
 
@@ -77,14 +109,17 @@ def init_supabase_realtime() -> Optional['queue.Queue']:
                 except Exception:
                     pass
 
-        channel = supabase.channel("realtime-stream")
-        channel.on_postgres_changes(
-            event="INSERT",
-            schema="public",
-            table=SUPABASE_TABLE,
-            callback=on_insert,
-        )
-        await channel.subscribe()
+        catalog = load_sensor_catalog()
+        for i, table_name in enumerate(catalog.keys()):
+            channel = supabase.channel(f"realtime-stream-{i}")
+            channel.on_postgres_changes(
+                event="INSERT",
+                schema="public",
+                table=table_name,
+                callback=on_insert,
+            )
+            await channel.subscribe()
+
         while True:
             await asyncio.sleep(3600)
 
@@ -98,10 +133,8 @@ def init_supabase_realtime() -> Optional['queue.Queue']:
 
     thread = threading.Thread(target=_run_loop, daemon=True)
     thread.start()
-    print("[Realtime] Suscripción WebSocket iniciada en background thread")
+    print("[Realtime] WebSocket iniciado en background thread")
     return data_queue
-
-
 def drain_realtime_queue(data_queue: 'queue.Queue') -> List[dict]:
     """Extrae todos los registros acumulados en la cola Realtime."""
     records = []
@@ -115,7 +148,71 @@ def drain_realtime_queue(data_queue: 'queue.Queue') -> List[dict]:
             break
     return records
 
-# ── Themes ──────────────────────────────────────────────────────────────
+
+# ── Kafka Consumer ─────────────────────────────────────────────────────
+KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+
+
+def init_kafka_consumer() -> "queue.Queue":
+    """Crea un consumer Kafka background que lee de todos los topics del catálogo."""
+    try:
+        from kafka import KafkaConsumer as KConsumer
+    except ImportError:
+        st.warning("⚠️ 'kafka-python' no instalado. Usando polling REST como fallback.")
+        return queue.Queue()
+
+    data_queue: queue.Queue = queue.Queue()
+    catalog = load_sensor_catalog()
+
+    topics = []
+    for table_name, info in catalog.items():
+        estacion = info.get("estacion", table_name)
+        topics.append(f"clima-{estacion}")
+
+    if not topics:
+        print("[Kafka] Catálogo vacío, no hay topics que consumir")
+        return data_queue
+
+    consumer = KConsumer(
+        *topics,
+        bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+        value_deserializer=lambda v: json.loads(v.decode("utf-8")),
+        auto_offset_reset="latest",
+        enable_auto_commit=True,
+        group_id="dashboard-consumer",
+    )
+
+    def _poll():
+        while True:
+            try:
+                msgs = consumer.poll(timeout_ms=1000, max_records=100)
+                for records in msgs.values():
+                    for record in records:
+                        data_queue.put(record.value)
+            except Exception as e:
+                print(f"[Kafka] Error en poll: {e}")
+            time.sleep(0.5)
+
+    thread = threading.Thread(target=_poll, daemon=True)
+    thread.start()
+    print(f"[Kafka] Consumer iniciado en background: topics={topics}")
+    return data_queue
+
+
+def drain_kafka_queue(data_queue: "queue.Queue") -> List[dict]:
+    """Extrae todos los registros acumulados en la cola Kafka."""
+    records = []
+    while True:
+        try:
+            item = data_queue.get_nowait()
+            if item is None:
+                continue
+            records.append(item)
+        except queue.Empty:
+            break
+    return records
+
+# ÔöÇÔöÇ Themes ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 THEMES = {
     "dark": {
         "bg_primary": "#0E1117",
@@ -237,14 +334,14 @@ def get_theme_css() -> str:
     """
 
 
-# ── Kafka Metrics ────────────────────────────────────────────────────────
+# ÔöÇÔöÇ Kafka Metrics ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://prometheus:9090")
 KAFKA_METRICS_CACHE_SEC = 15
 
 
 @st.cache_data(ttl=KAFKA_METRICS_CACHE_SEC, show_spinner=False)
 def fetch_kafka_metrics() -> Dict[str, Any]:
-    """Obtiene métricas clave de Kafka vía API de Prometheus."""
+    """Obtiene m├®tricas clave de Kafka v├¡a API de Prometheus."""
     import requests as _requests
     metrics: Dict[str, Any] = {
         "clima_puno_offset": 0, "clima_anomalias_offset": 0,
@@ -279,16 +376,16 @@ def fetch_kafka_metrics() -> Dict[str, Any]:
 
 
 def render_kafka_metrics_card(metrics: Dict[str, Any]):
-    """Renderiza una fila de tarjetas con métricas de Kafka."""
+    """Renderiza una fila de tarjetas con m├®tricas de Kafka."""
     t = get_theme()
     connected = metrics.get("connected", False)
     status_color = t["accent_green"] if connected else t["accent_red"]
-    status_text = "CONECTADO" if connected else "SIN CONEXIÓN"
+    status_text = "CONECTADO" if connected else "SIN CONEXI├ôN"
     st.markdown(f"""
     <div style="background:{t['bg_card']};border:1px solid {t['border']};
                 border-radius:10px;padding:14px;margin-bottom:12px;">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-            <span style="font-size:1.1rem;font-weight:600;color:{t['text_primary']};">📡 Kafka</span>
+            <span style="font-size:1.1rem;font-weight:600;color:{t['text_primary']};">­ƒôí Kafka</span>
             <span style="background:{status_color}22;color:{status_color};
                         padding:2px 10px;border-radius:12px;font-size:0.7rem;
                         font-weight:600;border:1px solid {status_color}44;">
@@ -297,12 +394,12 @@ def render_kafka_metrics_card(metrics: Dict[str, Any]):
         </div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
             <div style="text-align:center;">
-                <div style="color:{t['text_secondary']};font-size:0.65rem;text-transform:uppercase;">Tópico clima-puno</div>
+                <div style="color:{t['text_secondary']};font-size:0.65rem;text-transform:uppercase;">T├│pico clima-puno</div>
                 <div style="font-size:1.3rem;font-weight:700;color:{t['accent_cyan']};">{int(metrics.get('clima_puno_offset', 0))}</div>
                 <div style="color:{t['text_secondary']};font-size:0.6rem;">mensajes</div>
             </div>
             <div style="text-align:center;">
-                <div style="color:{t['text_secondary']};font-size:0.65rem;text-transform:uppercase;">Tópico anomalías</div>
+                <div style="color:{t['text_secondary']};font-size:0.65rem;text-transform:uppercase;">T├│pico anomal├¡as</div>
                 <div style="font-size:1.3rem;font-weight:700;color:{t['accent_orange']};">{int(metrics.get('clima_anomalias_offset', 0))}</div>
                 <div style="color:{t['text_secondary']};font-size:0.6rem;">mensajes</div>
             </div>
@@ -321,7 +418,7 @@ def render_kafka_metrics_card(metrics: Dict[str, Any]):
     """, unsafe_allow_html=True)
 
 
-# ── Coordinates ─────────────────────────────────────────────────────────
+# ÔöÇÔöÇ Coordinates ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 PERU_COORDS: Dict[str, Dict[str, float]] = {
     "AMAZONAS": {"lat": -5.5, "lon": -78.0},
     "ANCASH": {"lat": -9.5, "lon": -77.5},
@@ -352,16 +449,25 @@ PERU_COORDS: Dict[str, Dict[str, float]] = {
 }
 
 
-# ── Streaming Buffer ────────────────────────────────────────────────────
+# ÔöÇÔöÇ Streaming Buffer ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 class StreamingBuffer:
-    """Buffer circular thread-safe para datos en streaming (máx 100 pts)."""
+    """Buffer circular thread-safe para datos en streaming (sin l├¡mite)."""
 
-    def __init__(self, maxlen: int = 100):
-        self._data = deque(maxlen=maxlen)
+    def __init__(self, maxlen: int = 0):
+        self._data = deque()  # sin l├¡mite
         self._last_ts: Optional[datetime] = None
         self._supabase_anchor: Optional[dict] = None
 
     def add(self, reading: dict) -> None:
+        if "ts" in reading and isinstance(reading["ts"], str):
+            raw = _normalize_ts(reading["ts"])
+            try:
+                dt = datetime.fromisoformat(raw)
+                if dt.tzinfo is not None:
+                    dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+                reading["ts"] = dt
+            except (ValueError, TypeError):
+                pass
         self._data.append(reading)
         if "ts" in reading:
             self._last_ts = reading["ts"]
@@ -375,7 +481,8 @@ class StreamingBuffer:
             return pd.DataFrame()
         df = pd.DataFrame(list(self._data))
         if "ts" in df.columns:
-            df["ts"] = pd.to_datetime(df["ts"], errors="coerce")
+            if df["ts"].dtype == "object":
+                df["ts"] = pd.to_datetime(df["ts"], errors="coerce")
             df = df.sort_values("ts").reset_index(drop=True)
         return df
 
@@ -406,7 +513,7 @@ def sensor_data_generator(
     while True:
         temp = round(base_temp + offset + random.uniform(-temp_range / 2, temp_range / 2), 1)
         hum = round(base_hum + random.uniform(-hum_range / 2, hum_range / 2), 1)
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         reading = {
             "sensor_id": "sensor_puno_01",
             "temperatura": temp,
@@ -474,7 +581,7 @@ def build_gauge_chart(value: float, title: str = "Temperatura", min_val: float =
         delta={"reference": 15, "increasing": {"color": t["accent_red"]},
                "decreasing": {"color": t["accent_blue"]}},
         number={"font": {"color": t["text_primary"], "size": 40},
-                "suffix": "°C"},
+                "suffix": "┬░C"},
         gauge={
             "axis": {"range": [min_val, max_val], "tickcolor": t["text_secondary"],
                      "tickfont": {"color": t["text_secondary"]}},
@@ -506,27 +613,36 @@ def build_gauge_chart(value: float, title: str = "Temperatura", min_val: float =
     return fig
 
 
-# ── Supabase ────────────────────────────────────────────────────────────
-def fetch_all_supabase_readings(limit: int = 500) -> List[Dict[str, Any]]:
+# ÔöÇÔöÇ Supabase ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+# ── Supabase ─────────────────────────────────────────────────────────────────────────────────────────
+def _read_supabase_table(table_name: str, limit: int = 500) -> List[Dict[str, Any]]:
+    """Fetch readings from a single Supabase table."""
+    readings = []
     try:
         headers = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
-        url = f"{SUPABASE_URL}/rest/v1/{SUPABASE_TABLE}?order=created_at.desc&limit={limit}"
+        url = f"{SUPABASE_URL}/rest/v1/{table_name}?order=created_at.desc&limit={limit}"
         r = requests.get(url, headers=headers, timeout=15)
         r.raise_for_status()
         data = r.json()
-        readings = []
         for row in data:
-            ts = row.get("created_at", "")
-            if isinstance(ts, str):
+            raw_ts = str(row.get("created_at", ""))
+            if raw_ts:
                 try:
-                    ts_dt = pd.Timestamp(ts)
-                    ts_int = int(ts_dt.timestamp())
+                    dt = datetime.fromisoformat(_normalize_ts(raw_ts))
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=PERU_TZ)
+                    dt_utc = dt.astimezone(timezone.utc)
+                    ts_int = int(dt_utc.timestamp())
+                    ts_str = dt_utc.strftime("%Y-%m-%d %H:%M:%S")
+                    ts_dt = dt_utc
                 except Exception:
-                    ts_dt = pd.NaT
                     ts_int = 0
+                    ts_str = str(raw_ts)
+                    ts_dt = peru_now().astimezone(timezone.utc)
             else:
-                ts_dt = pd.NaT
                 ts_int = 0
+                ts_str = ""
+                ts_dt = peru_now().astimezone(timezone.utc)
             readings.append({
                 "sensor_id": row.get("estacion", "supabase"),
                 "temperatura": float(row.get("temperatura", 0)),
@@ -538,15 +654,22 @@ def fetch_all_supabase_readings(limit: int = 500) -> List[Dict[str, Any]]:
                 "voc": float(row.get("voc", 0)),
                 "calidad_aire": str(row.get("calidad_aire", "")),
                 "timestamp": ts_int,
-                "created_at": str(row.get("created_at", "")),
-                "ts": ts_dt if pd.notna(ts_dt) else pd.Timestamp.now(),
+                "created_at": ts_str,
+                "ts": ts_dt,
             })
-        return readings
     except Exception as e:
-        print(f"[Supabase] Error: {e}")
-        return []
+                print(f"[Supabase] Error fetching {table_name}: {e}")
+    return readings
 
 
+def fetch_all_supabase_readings(limit: int = 500) -> List[Dict[str, Any]]:
+    """Fetch readings from ALL catalog tables."""
+    catalog = load_sensor_catalog()
+    all_readings = []
+    for table_name in catalog:
+        per_table = max(50, limit // max(len(catalog), 1))
+        all_readings.extend(_read_supabase_table(table_name, per_table))
+    return all_readings
 def supabase_to_df(readings: List[Dict]) -> pd.DataFrame:
     if not readings:
         return pd.DataFrame()
@@ -557,7 +680,7 @@ def supabase_to_df(readings: List[Dict]) -> pd.DataFrame:
     return df
 
 
-# ── Map ─────────────────────────────────────────────────────────────────
+# ÔöÇÔöÇ Map ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 def build_station_map(stations_df: pd.DataFrame) -> go.Figure:
     t = get_theme()
     if stations_df.empty:
@@ -599,7 +722,7 @@ def build_station_map(stations_df: pd.DataFrame) -> go.Figure:
     return fig
 
 
-# ── Historical helpers ──────────────────────────────────────────────────
+# ÔöÇÔöÇ Historical helpers ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 @st.cache_data(ttl=3600, show_spinner="Cargando datos...")
 def load_climate_data(parquet_path: str) -> pd.DataFrame:
     if not os.path.exists(parquet_path):
@@ -643,8 +766,8 @@ def filter_data(df: pd.DataFrame, department: Optional[str] = None,
 
 
 def get_variable_label(variable: str) -> str:
-    return {"precip": "Precipitación (mm)", "tmax": "Temperatura Máxima (°C)",
-            "tmin": "Temperatura Mínima (°C)"}.get(variable, variable)
+    return {"precip": "Precipitaci├│n (mm)", "tmax": "Temperatura M├íxima (┬░C)",
+            "tmin": "Temperatura M├¡nima (┬░C)"}.get(variable, variable)
 
 
 def calculate_statistics(df: pd.DataFrame, variable: str) -> Dict[str, float]:
@@ -674,3 +797,52 @@ def prepare_download_data(df: pd.DataFrame, variable: str) -> pd.DataFrame:
 @st.cache_data
 def convert_df_to_csv(df: pd.DataFrame) -> bytes:
     return df.to_csv(index=False).encode("utf-8")
+
+
+# ── Sensor Config ────────────────────────────────────────────────────────
+SENSOR_CONFIG_PATH = os.getenv("SENSOR_CONFIG_PATH",
+                               str(Path(__file__).parent.parent.parent / "artifacts" / "sensor_config.json"))
+CATALOG_PATH = os.getenv("CATALOG_PATH",
+                         str(Path(__file__).parent.parent.parent / "artifacts" / "sensor_catalog.json"))
+
+
+def load_sensor_config() -> dict:
+    default = {"department": "PUNO", "province": "PUNO", "district": "PUNO", "station_name": "PUNO"}
+    try:
+        with open(SENSOR_CONFIG_PATH, "r") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return default
+
+
+def save_sensor_config(config: dict):
+    Path(SENSOR_CONFIG_PATH).parent.mkdir(parents=True, exist_ok=True)
+    with open(SENSOR_CONFIG_PATH, "w") as f:
+        json.dump(config, f, indent=2)
+
+
+def load_sensor_catalog() -> dict:
+    try:
+        with open(CATALOG_PATH, "r") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def get_catalog_stations() -> list:
+    catalog = load_sensor_catalog()
+    stations = []
+    for table_name, info in catalog.items():
+        estacion = info.get("estacion", table_name)
+        dept = info.get("department", "")
+        prov = info.get("province", "")
+        dist = info.get("district", "")
+        stations.append({
+            "table": table_name,
+            "estacion": estacion,
+            "department": dept,
+            "province": prov,
+            "district": dist,
+            "topic": f"clima-{estacion}",
+        })
+    return sorted(stations, key=lambda s: s["estacion"])

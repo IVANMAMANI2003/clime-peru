@@ -77,6 +77,16 @@ class DashboardConfig:
 
 
 @dataclass
+class DatabaseConfig:
+    url: str = ""
+    driver: str = "org.postgresql.Driver"
+    user: str = ""
+    password: str = ""
+    table_prefix: str = "sensor_data_"
+    batch_size: int = 100
+
+
+@dataclass
 class StreamingConfig:
     trigger_interval: str = "5 seconds"
     watermark: str = "30 seconds"
@@ -96,6 +106,7 @@ class AppConfig:
     sensor: SensorConfig = field(default_factory=SensorConfig)
     dashboard: DashboardConfig = field(default_factory=DashboardConfig)
     streaming: StreamingConfig = field(default_factory=StreamingConfig)
+    database: DatabaseConfig = field(default_factory=DatabaseConfig)
 
 
 class ConfigManager:
@@ -198,6 +209,16 @@ class ConfigManager:
             layout=dashboard_data.get("layout", "wide"),
         )
         
+        database_data = data.get("database", {})
+        database_config = DatabaseConfig(
+            url=os.getenv("POSTGRES_URL", database_data.get("url", "")),
+            driver=database_data.get("driver", "org.postgresql.Driver"),
+            user=os.getenv("POSTGRES_USER", database_data.get("user", "")),
+            password=os.getenv("POSTGRES_PASSWORD", database_data.get("password", "")),
+            table_prefix=database_data.get("table_prefix", "sensor_data_"),
+            batch_size=database_data.get("batch_size", 100),
+        )
+
         streaming_data = data.get("streaming", {})
         streaming_config = StreamingConfig(
             trigger_interval=streaming_data.get("trigger_interval", "5 seconds"),
@@ -215,6 +236,7 @@ class ConfigManager:
             supabase=supabase_config,
             etl=etl_config,
             sensor=sensor_config,
+            database=database_config,
             dashboard=dashboard_config,
             streaming=streaming_config,
         )

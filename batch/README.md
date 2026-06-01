@@ -77,9 +77,15 @@ python -m batch.etl_pandas
 - **Período**: 1940-01-01 a 2015-10-31
 - **Tamaño**: ~14 MB (2989 archivos parquet comprimidos snappy)
 
+## Uso en Streaming
+
+El Spark Streaming Processor (`streaming/spark_streaming_processor.py`) usa este Parquet para calcular `avg(tmax)` y `stddev(tmax)` históricos por ubicación geográfica (department/province/district). Estos estadísticos se usan como baseline para detectar anomalías en tiempo real.
+
+Nota: usa `tmax` (temperatura máxima) como proxy de `temperatura` ya que los datos streaming contienen temperatura ambiente en lugar de máximas/mínimas.
+
 ## Conexiones
 
 | Componente | Conexión |
 |-----------|----------|
-| `streaming/spark_streaming_processor.py` | Lee el Parquet histórico para calcular promedios y desviaciones por estación |
+| `streaming/spark_streaming_processor.py` | Lee el Parquet histórico para calcular promedios y desviaciones por estación (columna `tmax`) |
 | `dashboard/app.py` | Lee `artifacts/weather_data` y `artifacts/stations_metadata.parquet` para visualización |

@@ -66,6 +66,14 @@ streaming:
   checkpoint_location: "/app/artifacts/checkpoints"
   output_parquet: "/app/artifacts/output/clima_streaming"
 
+database:
+  url: "jdbc:postgresql://postgres:5432/climedb"
+  driver: "org.postgresql.Driver"
+  user: "clime"
+  password: "clime123"
+  table_prefix: "sensor_data_"
+  batch_size: 100
+
 api:
   cors_origins:
     - "http://localhost:8501"

@@ -2,7 +2,7 @@
 
 Contiene toda la configuración de contenedores, Dockerfiles y archivos de provisioning para ejecutar el stack completo de CimaPerú.
 
-## Stack Completo (9 Servicios)
+## Stack Completo (14 Servicios)
 
 ```
 docker compose up -d   # Levanta todo
@@ -16,12 +16,17 @@ docker compose logs -f # Logs en vivo
 |----------|-----------|--------|--------|-----------|
 | **kafka** | `clime-kafka` | `apache/kafka:4.2.0` | 19092 | — |
 | **kafka-exporter** | `clime-kafka-exporter` | `danielqsj/kafka-exporter:v1.9.0` | 19308 | kafka |
+| **postgres** | `clime-postgres` | `postgres:15` | 15432 | — |
 | **prometheus** | `clime-prometheus` | `prom/prometheus:latest` | 19090 | kafka-exporter |
 | **grafana** | `clime-grafana` | `grafana/grafana:latest` | 13000 | prometheus |
 | **kafka-ui** | `clime-kafka-ui` | `provectuslabs/kafka-ui:latest` | 18085 | kafka |
 | **jupyter** | `clime-jupyter` | `Dockerfile.jupyter` (build local) | 8888, 4040 | — |
-| **supabase-bridge** | `clime-supabase-bridge` | `Dockerfile.streaming` (build local) | — | kafka |
-| **spark-streaming** | `clime-spark-streaming` | `Dockerfile.streaming` (build local) | — | kafka |
+| **bridge-grupo2** | `clime-bridge-grupo2` | `Dockerfile.streaming` (build local) | — | kafka, postgres |
+| **bridge-grupo3** | `clime-bridge-grupo3` | `Dockerfile.streaming` (build local) | — | kafka, postgres |
+| **bridge-grupo4** | `clime-bridge-grupo4` | `Dockerfile.streaming` (build local) | — | kafka, postgres |
+| **spark-grupo2** | `clime-spark-grupo2` | `Dockerfile.streaming` (build local) | — | kafka, postgres |
+| **spark-grupo3** | `clime-spark-grupo3` | `Dockerfile.streaming` (build local) | — | kafka, postgres |
+| **spark-grupo4** | `clime-spark-grupo4` | `Dockerfile.streaming` (build local) | — | kafka, postgres |
 | **dashboard** | `clime-dashboard` | `Dockerfile.dashboard` (build local) | 8501 | — |
 
 ## Dockerfiles
@@ -34,8 +39,8 @@ docker compose logs -f # Logs en vivo
 
 ### `Dockerfile.streaming`
 - Base: `python:3.10-slim-bookworm`
-- Java 17 (JRE) + PySpark + kafka-python + supabase
-- Usado tanto para `supabase-bridge` como para `spark-streaming`
+- Java 17 (JRE) + PySpark + kafka-python + supabase + psycopg2-binary
+- Usado para: bridges (x3), sparks (x3)
 - Comando override vía `docker-compose.yml`
 
 ### `Dockerfile.dashboard`
@@ -75,13 +80,24 @@ docker compose logs -f # Logs en vivo
 
 | Volumen | Host → Contenedor | Servicios |
 |---------|------------------|-----------|
-| `../artifacts` | `/app/artifacts` | jupyter, dashboard |
+| `../artifacts` | `/app/artifacts` | jupyter, dashboard, bridges, sparks |
 | `../data` | `/app/data` | jupyter, dashboard |
 | `grafana_data` (named) | `/var/lib/grafana` | grafana |
+| `pg_data` (named) | `/var/lib/postgresql/data` | postgres |
 
 ## Redes
 
 Todos los servicios comparten la red `clime-net` (driver bridge). Kafka tiene alias de red `kafka` para resolución interna.
+
+## Variables de Entorno
+
+| Variable | Servicios | Propósito |
+|----------|-----------|-----------|
+| `POSTGRES_URL` | sparks | JDBC URL para conectar a PostgreSQL |
+| `POSTGRES_USER` | sparks | Usuario PostgreSQL |
+| `POSTGRES_PASSWORD` | sparks | Password PostgreSQL |
+| `KAFKA_BOOTSTRAP_SERVERS` | dashboard, bridges | Servidor Kafka |
+| `SPARK_DRIVER_MEMORY` | sparks | Memoria del driver Spark |
 
 ## Dev Stack
 

@@ -29,3 +29,69 @@ groups:
         annotations:
           summary: "No Kafka brokers available"
           description: "Kafka broker count is less than 1."
+
+  - name: sensor_alerts
+    interval: 15s
+    rules:
+      - alert: ValueExporterDown
+        expr: up{job="kafka-value-exporter"} == 0
+        for: 1m
+        annotations:
+          summary: "Kafka Value Exporter is down"
+          description: "Prometheus cannot reach the Kafka Value Exporter at {{ $labels.instance }}."
+
+      - alert: SensorAnomalyDetected
+        expr: anomaly_detected == 1
+        for: 0s
+        annotations:
+          summary: "Anomalía detectada en {{ $labels.station }}"
+          description: "El sensor {{ $labels.station }} ({{ $labels.department }}/{{ $labels.province }}) ha detectado una anomalía de temperatura. Z-score actual: {{ $value | humanize }}"
+
+      - alert: SensorStaleData
+        expr: time() - exporter_last_update_timestamp{topic!~".*-anomalias"} > 120
+        for: 0s
+        annotations:
+          summary: "Datos desactualizados en {{ $labels.topic }}"
+          description: "El topic {{ $labels.topic }} no ha recibido actualizaciones en más de 2 minutos. Última actualización hace {{ $value | humanize }}s."
+
+      - alert: SensorCriticalIAQ
+        expr: sensor_iaq_index > 200
+        for: 1m
+        annotations:
+          summary: "IAQ crítico en {{ $labels.station }}"
+          description: "El Índice de Calidad del Aire en {{ $labels.station }} ({{ $labels.department }}/{{ $labels.province }}) es de {{ $value | humanize }} (categoría: Severa). Umbral crítico: > 200."
+
+      - alert: SensorHighIAQ
+        expr: sensor_iaq_index > 100
+        for: 2m
+        annotations:
+          summary: "IAQ elevado en {{ $labels.station }}"
+          description: "El Índice de Calidad del Aire en {{ $labels.station }} es de {{ $value | humanize }} (categoría: Dañina). Umbral de alerta: > 100."
+
+      - alert: SensorCriticalAnomalyScore
+        expr: abs(anomaly_z_score) > 2.0
+        for: 0s
+        annotations:
+          summary: "Z-score crítico en {{ $labels.station }}"
+          description: "El Z-score de anomalía en {{ $labels.station }} es de {{ $value | humanize }} (|z| > 2.0 = anomalía crítica)."
+
+      - alert: SensorHighAnomalyScore
+        expr: abs(anomaly_z_score) > 1.5
+        for: 1m
+        annotations:
+          summary: "Z-score elevado en {{ $labels.station }}"
+          description: "El Z-score de anomalía en {{ $labels.station }} es de {{ $value | humanize }} (|z| > 1.5 = anomalía moderada)."
+
+      - alert: TopicNotReceivingData
+        expr: rate(kafka_topic_offset{topic!~".*-anomalias|__consumer_offsets"}[5m]) == 0
+        for: 5m
+        annotations:
+          summary: "Topic sin nuevos datos: {{ $labels.topic }}"
+          description: "El topic {{ $labels.topic }} no ha recibido nuevos mensajes en los últimos 5 minutos. Posible caída del bridge."
+
+      - alert: BridgeDown
+        expr: kafka_topic_offset{topic!~".*-anomalias|__consumer_offsets"} == 0
+        for: 10m
+        annotations:
+          summary: "Bridge caído para {{ $labels.topic }}"
+          description: "El topic {{ $labels.topic }} tiene offset 0. El bridge no ha publicado ningún mensaje."

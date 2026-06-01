@@ -76,6 +76,23 @@ services:
         aliases:
           - grafana
 
+  postgres:
+    image: postgres:15
+    container_name: clime-postgres
+    restart: unless-stopped
+    ports:
+      - "15432:5432"
+    environment:
+      POSTGRES_DB: climedb
+      POSTGRES_USER: clime
+      POSTGRES_PASSWORD: clime123
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      clime-net:
+        aliases:
+          - postgres
+
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: clime-kafka-ui
@@ -110,31 +127,152 @@ services:
     networks:
       - clime-net
 
-  supabase-bridge:
+  # ── Bridges (1 por tabla Supabase) ────────────────────────────
+  bridge-grupo2:
     build:
       context: ..
       dockerfile: docker/Dockerfile.streaming
-    container_name: clime-supabase-bridge
-    restart: unless-stopped
-    depends_on:
-      - kafka
-    command: ["python", "-m", "streaming.supabase_kafka_bridge"]
-    networks:
-      - clime-net
-
-  spark-streaming:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.streaming
-    container_name: clime-spark-streaming
+    container_name: clime-bridge-grupo2
     restart: unless-stopped
     depends_on:
       - kafka
     volumes:
       - ../artifacts:/app/artifacts
+    command: [
+      "python", "-m", "streaming.supabase_kafka_bridge",
+      "--table", "grupo_2_air_quality",
+      "--topic", "clima-grupo_2",
+      "--time-format", "string",
+    ]
+    networks:
+      - clime-net
+
+  bridge-grupo3:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.streaming
+    container_name: clime-bridge-grupo3
+    restart: unless-stopped
+    depends_on:
+      - kafka
+    volumes:
+      - ../artifacts:/app/artifacts
+    command: [
+      "python", "-m", "streaming.supabase_kafka_bridge",
+      "--table", "grupo_3_air_quality",
+      "--topic", "clima-grupo_3",
+      "--time-format", "string",
+    ]
+    networks:
+      - clime-net
+
+  bridge-grupo4:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.streaming
+    container_name: clime-bridge-grupo4
+    restart: unless-stopped
+    depends_on:
+      - kafka
+    volumes:
+      - ../artifacts:/app/artifacts
+    command: [
+      "python", "-m", "streaming.supabase_kafka_bridge",
+      "--table", "grupo4_air_quality",
+      "--topic", "clima-grupo_4",
+      "--time-format", "string",
+    ]
+    networks:
+      - clime-net
+
+  # ── Spark (1 por estación/topic) ───────────────────────────────
+  spark-grupo2:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.streaming
+    container_name: clime-spark-grupo2
+    restart: unless-stopped
+    depends_on:
+      - kafka
+      - postgres
+    volumes:
+      - ../artifacts:/app/artifacts
     environment:
       - SPARK_DRIVER_MEMORY=2g
-    command: ["python", "-m", "streaming.spark_streaming_processor", "--mode", "kafka"]
+      - POSTGRES_URL=jdbc:postgresql://postgres:5432/climedb
+      - POSTGRES_USER=clime
+      - POSTGRES_PASSWORD=clime123
+    command: [
+      "python", "-m", "streaming.spark_streaming_processor",
+      "--input-topic", "clima-grupo_2",
+      "--anomaly-topic", "clima-grupo_2-anomalias",
+    ]
+    networks:
+      - clime-net
+
+  spark-grupo3:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.streaming
+    container_name: clime-spark-grupo3
+    restart: unless-stopped
+    depends_on:
+      - kafka
+      - postgres
+    volumes:
+      - ../artifacts:/app/artifacts
+    environment:
+      - SPARK_DRIVER_MEMORY=2g
+      - POSTGRES_URL=jdbc:postgresql://postgres:5432/climedb
+      - POSTGRES_USER=clime
+      - POSTGRES_PASSWORD=clime123
+    command: [
+      "python", "-m", "streaming.spark_streaming_processor",
+      "--input-topic", "clima-grupo_3",
+      "--anomaly-topic", "clima-grupo_3-anomalias",
+    ]
+    networks:
+      - clime-net
+
+  spark-grupo4:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.streaming
+    container_name: clime-spark-grupo4
+    restart: unless-stopped
+    depends_on:
+      - kafka
+      - postgres
+    volumes:
+      - ../artifacts:/app/artifacts
+    environment:
+      - SPARK_DRIVER_MEMORY=2g
+      - POSTGRES_URL=jdbc:postgresql://postgres:5432/climedb
+      - POSTGRES_USER=clime
+      - POSTGRES_PASSWORD=clime123
+    command: [
+      "python", "-m", "streaming.spark_streaming_processor",
+      "--input-topic", "clima-grupo_4",
+      "--anomaly-topic", "clima-grupo_4-anomalias",
+    ]
+    networks:
+      - clime-net
+
+  # ── Monitoring ──────────────────────────────────────────────
+  kafka-value-exporter:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.monitoring
+    container_name: clime-kafka-value-exporter
+    restart: unless-stopped
+    depends_on:
+      - kafka
+    ports:
+      - "8000:8000"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EXPORTER_PORT: "8000"
+      POLL_INTERVAL: "15"
     networks:
       - clime-net
 
@@ -151,6 +289,7 @@ services:
       - ../data:/app/data
     environment:
       ARTIFACTS_PATH: /app/artifacts
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     networks:
       - clime-net
 
@@ -160,3 +299,4 @@ networks:
 
 volumes:
   grafana_data:
+  pg_data:

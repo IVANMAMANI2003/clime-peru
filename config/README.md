@@ -25,7 +25,8 @@ supabase:            # url, api_key, table, poll_interval, realtime_enabled
 etl:                 # input_pattern, partition_columns, date_format, null_values
 sensor:              # min/max_temperature, anomaly_threshold_sigma
 dashboard:           # host, port, title, page_icon, layout
-streaming:           # trigger_interval, output_mode, checkpoint_location, output_parquet
+streaming:           # trigger_interval, watermark, window_duration, checkpoint_location
+database:            # url, driver, user, password, table_prefix, batch_size
 api:                 # cors_origins, timeout_seconds, max_retries
 ```
 
@@ -34,9 +35,20 @@ api:                 # cors_origins, timeout_seconds, max_retries
 Implementa `ConfigManager` (singleton) que:
 
 1. Lee `config.yaml` desde el mismo directorio
-2. Parsea en dataclasses tipadas: `SparkConfig`, `PathsConfig`, `KafkaConfig`, `SupabaseConfig`, `ETLConfig`, `SensorConfig`, `DashboardConfig`, `StreamingConfig`
+2. Parsea en dataclasses tipadas: `SparkConfig`, `PathsConfig`, `KafkaConfig`, `SupabaseConfig`, `ETLConfig`, `SensorConfig`, `DashboardConfig`, `StreamingConfig`, **`DatabaseConfig`**
 3. Aplica sobrescrituras de variables de entorno
 4. Expone `get_config()` → `AppConfig`
+
+#### DatabaseConfig
+
+| Campo | Tipo | Default | Env var |
+|-------|------|---------|---------|
+| `url` | str | `jdbc:postgresql://postgres:5432/climedb` | `POSTGRES_URL` |
+| `driver` | str | `org.postgresql.Driver` | — |
+| `user` | str | `clime` | `POSTGRES_USER` |
+| `password` | str | `clime123` | `POSTGRES_PASSWORD` |
+| `table_prefix` | str | `sensor_data_` | — |
+| `batch_size` | int | 100 | — |
 
 ### `logger.py`
 
@@ -55,7 +67,9 @@ Sistema de logging estructurado con:
 | `SUPABASE_URL` | supabase | url |
 | `SUPABASE_API_KEY` | supabase | api_key |
 | `KAFKA_BOOTSTRAP_SERVERS` | kafka | bootstrap_servers |
-| `KAFKA_TOPIC` | kafka | topic |
+| `POSTGRES_URL` | database | url |
+| `POSTGRES_USER` | database | user |
+| `POSTGRES_PASSWORD` | database | password |
 
 ## Uso en Código
 
@@ -63,9 +77,10 @@ Sistema de logging estructurado con:
 from config import get_config
 
 config = get_config()
-print(config.kafka.topic)           # "clima-puno"
-print(config.streaming.trigger_interval)  # "5 seconds"
-print(config.sensor.anomaly_threshold_sigma)  # 2.0
+print(config.kafka.bootstrap_servers)       # "kafka:9092"
+print(config.streaming.trigger_interval)    # "5 seconds"
+print(config.sensor.anomaly_threshold_sigma) # 2.0
+print(config.database.url)                  # "jdbc:postgresql://postgres:5432/climedb"
 ```
 
 ## Valores por Defecto vs YAML

@@ -3,48 +3,138 @@
   "uid": "kafka-overview-clime",
   "tags": ["kafka", "clime-peru"],
   "schemaVersion": 36,
-  "version": 1,
+  "version": 2,
+  "time": { "from": "now-15m", "to": "now" },
+  "timepicker": {},
   "panels": [
     {
-      "title": "Kafka Brokers",
+      "title": "Brokers",
       "type": "stat",
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
-      "targets": [
-        {
-          "expr": "kafka_brokers",
-          "legendFormat": "Brokers"
-        }
-      ]
+      "gridPos": { "h": 6, "w": 4, "x": 0, "y": 0 },
+      "targets": [{ "expr": "kafka_brokers", "legendFormat": "Brokers" }],
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "fixed" }, "noValue": "0" }
+      }
     },
     {
-      "title": "Kafka Exporter Status",
+      "title": "Topics",
       "type": "stat",
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "gridPos": { "h": 6, "w": 4, "x": 4, "y": 0 },
+      "targets": [{ "expr": "count(kafka_topic_partitions)", "legendFormat": "Topics" }]
+    },
+    {
+      "title": "Mensajes totales",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 4, "x": 8, "y": 0 },
+      "targets": [{ "expr": "sum(kafka_topic_partition_current_offset)", "legendFormat": "Mensajes" }]
+    },
+    {
+      "title": "Anomalias totales",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 4, "x": 12, "y": 0 },
+      "targets": [{ "expr": "sum(kafka_topic_partition_current_offset{topic=~'.*-anomalias'})", "legendFormat": "Anomalias" }]
+    },
+    {
+      "title": "Mensajes por topico",
+      "type": "timeseries",
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 6 },
       "targets": [
         {
-          "expr": "up{job=\"kafka-exporter\"}",
-          "legendFormat": "Status"
+          "expr": "kafka_topic_partition_current_offset{topic!~'.*-anomalias'}",
+          "legendFormat": "{{topic}}"
         }
       ]
     },
     {
-      "title": "Consumer Lag",
+      "title": "Anomalias por topico",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 6 },
       "targets": [
         {
-          "expr": "kafka_consumergroup_lag",
-          "legendFormat": "{{topic}} - {{consumergroup}}"
+          "expr": "kafka_topic_partition_current_offset{topic=~'.*-anomalias'}",
+          "legendFormat": "{{topic}}"
         }
       ]
     },
     {
-      "title": "Messages Per Topic",
+      "title": "Tasa de mensajes (por minuto)",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 16 },
       "targets": [
         {
-          "expr": "kafka_topic_partition_current_offset",
+          "expr": "rate(kafka_topic_partition_current_offset[1m])",
+          "legendFormat": "{{topic}}"
+        }
+      ]
+    },
+    {
+      "title": "Particiones por topico",
+      "type": "bargauge",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 16 },
+      "targets": [
+        {
+          "expr": "kafka_topic_partitions",
+          "legendFormat": "{{topic}}"
+        }
+      ]
+    },
+    {
+      "title": "Salud de topicos (ISR)",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 16 },
+      "targets": [
+        {
+          "expr": "kafka_topic_partition_in_sync_replica",
+          "format": "table",
+          "legendFormat": "{{topic}}"
+        },
+        {
+          "expr": "kafka_topic_partition_under_replicated_partition",
+          "format": "table",
+          "legendFormat": "{{topic}} UR"
+        }
+      ]
+    },
+    {
+      "title": "Topicos sub-replicados",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "expr": "sum(kafka_topic_partition_under_replicated_partition)",
+          "legendFormat": "UR"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Offset mas antiguo",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 4, "y": 24 },
+      "targets": [
+        {
+          "expr": "kafka_topic_partition_oldest_offset",
+          "legendFormat": "{{topic}}"
+        }
+      ]
+    },
+    {
+      "title": "Lider preferido",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 12, "y": 24 },
+      "targets": [
+        {
+          "expr": "kafka_topic_partition_leader_is_preferred",
           "legendFormat": "{{topic}}"
         }
       ]
