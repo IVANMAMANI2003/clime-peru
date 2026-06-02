@@ -209,7 +209,9 @@ class SparkStreamingProcessor:
         return anomaly_df
 
     def write_to_kafka(self, anomaly_df: DataFrame):
-        kafka_df = anomaly_df.select(
+        kafka_df = anomaly_df \
+            .filter(col("isAnomaly") == True) \
+            .select(
             to_json(struct(
                 col("id"), col("sensor_id"), col("estacion"),
                 col("department"), col("province"), col("district"),

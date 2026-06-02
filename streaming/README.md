@@ -277,3 +277,22 @@ docker exec clime-postgres psql -U clime -d climedb -c "DROP TABLE IF EXISTS sen
 # Levantar todo fresco
 docker compose up -d
 ```
+
+
+ # Ver estado del contenedor PostgreSQL
+docker ps | grep postgres
+
+# Entrar al contenedor
+docker exec -it clime-postgres bash
+
+# Ver logs de PostgreSQL
+docker logs clime-postgres
+
+# Reiniciar PostgreSQL
+docker restart clime-postgres
+
+# Conectar a la base de datos
+psql -U clime -d climedb
+\dt
+SELECT * FROM sensor_data_grupo_2 LIMIT 5;
+SELECT COUNT(*) FROM sensor_data_grupo_2;

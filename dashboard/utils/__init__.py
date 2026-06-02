@@ -1,21 +1,20 @@
-﻿import os
+﻿import asyncio
 import json
-import random
-import time
-import asyncio
+import os
 import queue
+import random
 import threading
-import requests
+import time
 from collections import deque
-from typing import Optional, List, Dict, Any, Tuple, Generator, Callable
-from pathlib import Path
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple
 
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import requests
 import streamlit as st
-
 
 PARQUET_CACHE_KEY = "clime_peru_parquet_data"
 METADATA_CACHE_KEY = "clime_peru_metadata"
@@ -341,7 +340,7 @@ KAFKA_METRICS_CACHE_SEC = 15
 
 @st.cache_data(ttl=KAFKA_METRICS_CACHE_SEC, show_spinner=False)
 def fetch_kafka_metrics() -> Dict[str, Any]:
-    """Obtiene m├®tricas clave de Kafka v├¡a API de Prometheus."""
+    """Obtiene metricas clave de Kafka via API de Prometheus."""
     import requests as _requests
     metrics: Dict[str, Any] = {
         "clima_puno_offset": 0, "clima_anomalias_offset": 0,
@@ -385,7 +384,7 @@ def render_kafka_metrics_card(metrics: Dict[str, Any]):
     <div style="background:{t['bg_card']};border:1px solid {t['border']};
                 border-radius:10px;padding:14px;margin-bottom:12px;">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-            <span style="font-size:1.1rem;font-weight:600;color:{t['text_primary']};">­ƒôí Kafka</span>
+            <span style="font-size:1.1rem;font-weight:600;color:{t['text_primary']};">­De Kafka</span>
             <span style="background:{status_color}22;color:{status_color};
                         padding:2px 10px;border-radius:12px;font-size:0.7rem;
                         font-weight:600;border:1px solid {status_color}44;">
@@ -394,12 +393,12 @@ def render_kafka_metrics_card(metrics: Dict[str, Any]):
         </div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
             <div style="text-align:center;">
-                <div style="color:{t['text_secondary']};font-size:0.65rem;text-transform:uppercase;">T├│pico clima-puno</div>
+                <div style="color:{t['text_secondary']};font-size:0.65rem;text-transform:uppercase;">Tópico clima-puno</div>
                 <div style="font-size:1.3rem;font-weight:700;color:{t['accent_cyan']};">{int(metrics.get('clima_puno_offset', 0))}</div>
                 <div style="color:{t['text_secondary']};font-size:0.6rem;">mensajes</div>
             </div>
             <div style="text-align:center;">
-                <div style="color:{t['text_secondary']};font-size:0.65rem;text-transform:uppercase;">T├│pico anomal├¡as</div>
+                <div style="color:{t['text_secondary']};font-size:0.65rem;text-transform:uppercase;">Tópicos anomalos</div>
                 <div style="font-size:1.3rem;font-weight:700;color:{t['accent_orange']};">{int(metrics.get('clima_anomalias_offset', 0))}</div>
                 <div style="color:{t['text_secondary']};font-size:0.6rem;">mensajes</div>
             </div>
@@ -418,7 +417,6 @@ def render_kafka_metrics_card(metrics: Dict[str, Any]):
     """, unsafe_allow_html=True)
 
 
-# ÔöÇÔöÇ Coordinates ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 PERU_COORDS: Dict[str, Dict[str, float]] = {
     "AMAZONAS": {"lat": -5.5, "lon": -78.0},
     "ANCASH": {"lat": -9.5, "lon": -77.5},
@@ -766,8 +764,8 @@ def filter_data(df: pd.DataFrame, department: Optional[str] = None,
 
 
 def get_variable_label(variable: str) -> str:
-    return {"precip": "Precipitaci├│n (mm)", "tmax": "Temperatura M├íxima (┬░C)",
-            "tmin": "Temperatura M├¡nima (┬░C)"}.get(variable, variable)
+    return {"precip": "Precipitación (mm)", "tmax": "Temperatura Maíxima (C°)",
+            "tmin": "Temperatura Minima (C°)"}.get(variable, variable)
 
 
 def calculate_statistics(df: pd.DataFrame, variable: str) -> Dict[str, float]:

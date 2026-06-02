@@ -109,3 +109,6 @@ docker compose -f docker-compose.dev.yml up -d
 ```
 
 Esto levanta solo Kafka + Kafka UI para pruebas de productores/consumidores.
+
+
+
