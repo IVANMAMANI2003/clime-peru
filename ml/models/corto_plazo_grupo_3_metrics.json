@@ -1,0 +1,33 @@
+{
+  "station": "PUNO",
+  "grupo": "grupo_3",
+  "type": "corto_plazo",
+  "mae": 6.355,
+  "rmse": 11.922,
+  "r2": -1.4094,
+  "train_size": 113081,
+  "test_size": 28271,
+  "date_range": "2026-04-17 00:16:48 - 2026-06-02 11:05:40",
+  "top_features": [
+    {
+      "name": "temperatura_roll_mean_5",
+      "importance": 0.2648
+    },
+    {
+      "name": "temperatura_roll_mean_15",
+      "importance": 0.2542
+    },
+    {
+      "name": "temp_pres_ratio",
+      "importance": 0.2511
+    },
+    {
+      "name": "presion_roll_mean_30",
+      "importance": 0.2045
+    },
+    {
+      "name": "humedad_roll_mean_30",
+      "importance": 0.0056
+    }
+  ]
+}

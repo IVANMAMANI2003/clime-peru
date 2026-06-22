@@ -73,3 +73,13 @@ htmlcov/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Node / Docx
+node_modules/
+package-lock.json
+
+# MkDocs build
+site/
+
+# Documentos generados
+*.docx

@@ -1,0 +1,32 @@
+{
+  "station": "AZANGARO",
+  "type": "largo_plazo",
+  "mae": 0.09,
+  "rmse": 0.14,
+  "r2": 0.9948,
+  "train_size": 12223,
+  "test_size": 3056,
+  "date_range": "1963-03-31 - 2014-06-30",
+  "top_features": [
+    {
+      "name": "tmax_roll_mean_7",
+      "importance": 0.3691
+    },
+    {
+      "name": "tmax_diff_7",
+      "importance": 0.1882
+    },
+    {
+      "name": "tmax_diff_1",
+      "importance": 0.1345
+    },
+    {
+      "name": "tmax_lag_1",
+      "importance": 0.106
+    },
+    {
+      "name": "tmax_tmin_diff",
+      "importance": 0.0594
+    }
+  ]
+}

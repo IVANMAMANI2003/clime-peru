@@ -5,28 +5,28 @@ Sistema Big Data híbrido que integra datos climáticos históricos del SENAMHI 
 ## Arquitectura General
 
 ```
-                          ┌─────────────────────────────────────────────────────────────────────┐
-                          │                         CIMAPERÚ STACK                               │
-                          │                                                                     │
- ┌──────────────┐         │  ┌──────────┐    ┌──────────┐    ┌──────────────┐    ┌──────────┐  │
- │   SENAMHI    │─────────│─▶│  SPARK   │────▶│ PARQUET  │    │  DASHBOARD   │    │POSTGRES │  │
- │  (.txt .dat) │         │  │ETL BATCH │    │HISTÓRICO │    │  STREAMLIT   │    │ CLIMEDB │  │
- └──────────────┘         │  └──────────┘    └─────┬────┘    │  :8501       │    │ :15432  │  │
-                          │                        │         └──────▲───────┘    └────▲────┘  │
- ┌──────────────┐         │  ┌──────────┐    ┌─────▼─────┐         │              │          │
- │  SUPABASE    │         │  │  KAFKA   │    │   SPARK   │─────────┘──────────────┘          │
- │  tabla_1 ────│─Bridge──│─▶│clima-g2  │───▶│ STREAMING │ Anomalías + Data                  │
- │  tabla_2 ────│─Bridge──│─▶│clima-g3  │───▶│ (3 inst.) │──────▶ .anomalias                  │
- │  tabla_3 ────│─Bridge──│─▶│clima-g4  │───▶│ c/u       │──────▶ Parquet streaming           │
- └──────────────┘  (3)    │  └─────┬──────┘    └───────────┘                                   │
-                          │        │                                                           │
-                          │  ┌─────▼──────┐   ┌─────────────────────────────────────┐         │
-                          │  │ KAFKA UI   │   │      OBSERVABILIDAD                  │         │
-                          │  │ :18085     │   │ Kafka Exporter ─▶ Prometheus ─▶ Graf│         │
-                          │  └────────────┘   │ (19308)           (19090)    (13000) │         │
-                          │                   │ Alertas: Lag > 100, Brokers, Exporter│         │
-                          │                   └─────────────────────────────────────┘         │
-                          └─────────────────────────────────────────────────────────────────────┘
+                          ┌─────────────────────────────────────────────────────────────────────────────────────┐
+                          │                         CIMAPERÚ STACK                                               │
+                          │                                                                                     │
+ ┌──────────────┐         │  ┌──────────┐    ┌──────────┐    ┌──────────────┐    ┌──────────┐  ┌────────────┐  │
+ │   SENAMHI    │─────────│─▶│  SPARK   │────▶│ PARQUET  │    │  DASHBOARD   │    │POSTGRES │  │     ML     │  │
+ │  (.txt .dat) │         │  │ETL BATCH │    │HISTÓRICO │───▶│  STREAMLIT   │    │ CLIMEDB │  │  XGBoost   │  │
+ └──────────────┘         │  └──────────┘    └─────┬────┘    │  :8501       │    │ :15432  │  │ Predicción │  │
+                          │                        │         └──────▲───────┘    └─────────┘  └──────▲─────┘  │
+ ┌──────────────┐         │  ┌──────────┐    ┌─────▼─────┐         │              │              │            │
+ │  SUPABASE    │         │  │  KAFKA   │    │   SPARK   │─────────┘──────────────┘──────────────┘            │
+ │  tabla_1 ────│─Bridge──│─▶│clima-g2  │───▶│ STREAMING │ Anomalías + Data                                  │
+ │  tabla_2 ────│─Bridge──│─▶│clima-g3  │───▶│ (3 inst.) │──────▶ .anomalias + Parquet streaming               │
+ │  tabla_3 ────│─Bridge──│─▶│clima-g4  │───▶│ c/u       │                                                    │
+ └──────────────┘  (3)    │  └─────┬──────┘    └───────────┘                                                    │
+                          │        │                                                                           │
+                          │  ┌─────▼──────┐   ┌─────────────────────────────────────┐                         │
+                          │  │ KAFKA UI   │   │      OBSERVABILIDAD                  │                         │
+                          │  │ :18085     │   │ Kafka Exporter ─▶ Prometheus ─▶ Graf │                         │
+                          │  └────────────┘   │ (19308)           (19090)    (13000) │                         │
+                          │                   │ Alertas: Lag > 100, Brokers, Exporter│                         │
+                          │                   └─────────────────────────────────────┘                         │
+                          └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Tabla de Contenidos
@@ -38,6 +38,7 @@ Sistema Big Data híbrido que integra datos climáticos históricos del SENAMHI 
 - [Inicio Rápido](#inicio-rápido-docker)
 - [Servicios y Puertos](#servicios-y-puertos)
 - [Pipeline de Datos](#pipeline-de-datos)
+- [Machine Learning](#machine-learning)
 - [Observabilidad](#observabilidad)
 - [Parámetros de Configuración](#parámetros-de-configuración)
 - [Troubleshooting](#troubleshooting)
@@ -54,10 +55,11 @@ El sistema sigue una **arquitectura Kappa**: un único pipeline de streaming pro
 | **Ingesta** | Kafka | apache/kafka:4.2.0 (KRaft) | 1 tópico por estación (auto-create) |
 | **Procesamiento Batch** | Spark ETL | PySpark 4.1.2 | Convierte .txt → Parquet particionado |
 | **Procesamiento Streaming** | Spark Structured Streaming | PySpark + Kafka connector | Parseo, detección de anomalías, PostgreSQL sink |
+| **Machine Learning** | XGBoost + scikit-learn + joblib | Python 3.11 | Predicción tmax (largo plazo) y temperatura (corto plazo) |
 | **Almacenamiento** | Parquet | Snappy compression | ~14 MB, 1,073,151 registros, Hive-partitioned |
 | | PostgreSQL 15 | psycopg2 + JDBC | Datos streaming con ON CONFLICT DO NOTHING |
 | **Observabilidad** | Prometheus + Grafana | Exporters + Dashboards | Métricas de Kafka, lag, brokers, alertas |
-| **Visualización** | Streamlit + Plotly | Dashboard interactivo | Histórico + Tiempo Real + Métricas del Stack |
+| **Visualización** | Streamlit + Plotly | Dashboard interactivo (3 tabs) | Histórico + Tiempo Real + Predicciones ML |
 
 ### Flujo de Datos
 
@@ -88,9 +90,16 @@ clime-peru/
 │   └── spark_streaming_processor.py     #   Spark Structured Streaming (3 sinks: Kafka, Parquet, PG)
 │
 ├── dashboard/                           # Interfaz Web (Streamlit)
-│   ├── app.py                           #   Aplicación principal
+│   ├── app.py                           #   Aplicación principal (3 pestañas)
 │   └── utils/
 │       └── __init__.py                  #   Temas, charts, Supabase, métricas
+│
+├── ml/                                  # Machine Learning
+│   ├── features.py                      #   Feature engineering (largo y corto plazo)
+│   ├── train_largo_plazo.py             #   Entrenamiento XGBoost con datos SENAMHI
+│   ├── train_corto_plazo.py             #   Entrenamiento XGBoost con datos streaming
+│   ├── predict.py                       #   Predicción unificada + listado de modelos
+│   └── models/                          #   Modelos .pkl persistidos (volumen Docker)
 │
 ├── config/                              # Configuración Centralizada
 │   ├── __init__.py                      #   ConfigManager + dataclasses (incl. DatabaseConfig)
@@ -349,7 +358,53 @@ Kafka (clima-{ESTACION})
 |---------|--------------|
 | 📊 **Datos Históricos** | Filtros por departamento/provincia/estación, rango de fechas, granularidad diaria/mensual/anual. Gráficos de series temporales, box plots, mapa de estaciones, tabla descargable. |
 | ⏱️ **Tiempo Real** | Consume de Kafka vía consumer group `dashboard-consumer`. Métricas de temperatura, humedad, IAQ (eCO₂/VOC), presión. Panel de streaming 60s. Gráficos multi-eje. |
+| 🤖 **Predicciones ML** | Predicción de temperatura con XGBoost: largo plazo (tmax diario con datos SENAMHI) y corto plazo (temperatura con datos streaming). Selector de estación, fecha y botón predecir. |
 | 📡 **Métricas del Stack** | Offsets de Kafka, lag, brokers, estado de conexión vía Prometheus. |
+
+## Machine Learning
+
+### Componentes ML
+
+| Archivo | Propósito |
+|---------|-----------|
+| `ml/features.py` | `build_largo_plazo_features()` y `build_corto_plazo_features()` — lags, rolling means, codificación cíclica |
+| `ml/train_largo_plazo.py` | Entrena XGBoost con Parquet SENAMHI (estaciones con >1000 registros) |
+| `ml/train_corto_plazo.py` | Entrena XGBoost con Parquet streaming (últimas 10000 obs por grupo) |
+| `ml/predict.py` | `predict_largo_plazo()`, `predict_corto_plazo()`, `list_models()`, `get_model_info()` |
+| `ml/models/` | Modelos .pkl persistidos: 4 largo plazo + 3 corto plazo + métricas JSON |
+
+### Modelos Entrenados
+
+**Largo Plazo** (tmax diario, datos SENAMHI 1964-2012):
+| Estación | MAE | R² |
+|----------|-----|----|
+| PUNO | 0.08°C | 0.994 |
+| AZANGARO | 0.09°C | 0.995 |
+| LAMPA | 0.07°C | 0.997 |
+| CAPACHICA | 0.08°C | 0.994 |
+
+**Corto Plazo** (temperatura cada 5-15 min, datos streaming):
+| Grupo | MAE | R² | Estado |
+|-------|-----|----|--------|
+| grupo_2 (LAMPA) | 0.044°C | 0.992 | OK |
+| grupo_3 (PUNO) | 6.355°C | -1.410 | Sensor defectuoso |
+| grupo_4 (AZANGARO) | 0.053°C | 0.993 | OK |
+
+### Predicción desde Dashboard
+
+Tercer tab `"🤖 Predicciones ML"` en `dashboard/app.py`: selecciona horizonte (largo/corto), estación y fecha, presiona "Predecir". Los resultados persisten en `st.session_state` entre auto-refreshes.
+
+### Re-entrenamiento
+
+```bash
+# Largo plazo — entrenar modelos con datos SENAMHI
+docker exec clime-jupyter python -m ml.train_largo_plazo
+
+# Corto plazo — entrenar modelos con datos streaming
+docker exec clime-jupyter python -m ml.train_corto_plazo
+```
+
+Los modelos .pkl se guardan en `ml/models/`, montado como volumen Docker para persistencia.
 
 ## Observabilidad
 

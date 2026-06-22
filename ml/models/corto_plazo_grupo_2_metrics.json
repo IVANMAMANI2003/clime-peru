@@ -1,0 +1,33 @@
+{
+  "station": "LAMPA",
+  "grupo": "grupo_2",
+  "type": "corto_plazo",
+  "mae": 0.044,
+  "rmse": 0.134,
+  "r2": 0.9922,
+  "train_size": 108725,
+  "test_size": 27182,
+  "date_range": "2026-04-19 22:54:45 - 2026-05-21 19:50:14",
+  "top_features": [
+    {
+      "name": "temp_pres_ratio",
+      "importance": 0.6235
+    },
+    {
+      "name": "temperatura_lag_1",
+      "importance": 0.2764
+    },
+    {
+      "name": "temperatura_roll_mean_5",
+      "importance": 0.0594
+    },
+    {
+      "name": "temperatura_roll_mean_15",
+      "importance": 0.0151
+    },
+    {
+      "name": "temperatura_lag_5",
+      "importance": 0.0129
+    }
+  ]
+}

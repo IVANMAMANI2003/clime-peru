@@ -1,0 +1,32 @@
+{
+  "station": "LAMPA",
+  "type": "largo_plazo",
+  "mae": 0.069,
+  "rmse": 0.108,
+  "r2": 0.997,
+  "train_size": 14455,
+  "test_size": 3614,
+  "date_range": "1963-09-14 - 2014-05-31",
+  "top_features": [
+    {
+      "name": "tmax_roll_mean_7",
+      "importance": 0.3369
+    },
+    {
+      "name": "tmax_diff_1",
+      "importance": 0.1565
+    },
+    {
+      "name": "tmax_lag_1",
+      "importance": 0.1555
+    },
+    {
+      "name": "tmax_diff_7",
+      "importance": 0.1458
+    },
+    {
+      "name": "tmax_tmin_diff",
+      "importance": 0.0704
+    }
+  ]
+}

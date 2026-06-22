@@ -287,6 +287,8 @@ services:
     volumes:
       - ../artifacts:/app/artifacts
       - ../data:/app/data
+      - ../ml:/app/ml
+      - ../dashboard:/app/dashboard
     environment:
       ARTIFACTS_PATH: /app/artifacts
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092

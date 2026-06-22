@@ -83,9 +83,15 @@ El Spark Streaming Processor (`streaming/spark_streaming_processor.py`) usa este
 
 Nota: usa `tmax` (temperatura máxima) como proxy de `temperatura` ya que los datos streaming contienen temperatura ambiente en lugar de máximas/mínimas.
 
+### Uso en ML
+
+El Parquet histórico generado por este ETL es consumido por `ml/train_largo_plazo.py` para entrenar modelos XGBoost de predicción de tmax diario. Los scripts ML filtran estaciones con >1000 registros (PUNO, AZANGARO, LAMPA, CAPACHICA) y utilizan las columnas `tmax` y `date` para feature engineering con lags y rolling means.
+
 ## Conexiones
 
 | Componente | Conexión |
 |-----------|----------|
 | `streaming/spark_streaming_processor.py` | Lee el Parquet histórico para calcular promedios y desviaciones por estación (columna `tmax`) |
 | `dashboard/app.py` | Lee `artifacts/weather_data` y `artifacts/stations_metadata.parquet` para visualización |
+| `ml/train_largo_plazo.py` | Lee el Parquet histórico para entrenar modelos XGBoost de predicción de tmax |
+| `ml/predict.py` | Lee el Parquet histórico para inferencia de largo plazo (usa STATION_DIR_MAP) |

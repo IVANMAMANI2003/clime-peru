@@ -21,6 +21,7 @@ async function generateCompleteDocx() {
       ...p2.chapter8(),
       ...p2.chapter9(),
       ...p2.chapter10(),
+      ...p2.chapter11(),
     ];
 
     const validContent = allContent.filter(item => {

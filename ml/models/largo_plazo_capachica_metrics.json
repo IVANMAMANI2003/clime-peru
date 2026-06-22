@@ -1,0 +1,32 @@
+{
+  "station": "CAPACHICA",
+  "type": "largo_plazo",
+  "mae": 0.08,
+  "rmse": 0.122,
+  "r2": 0.9938,
+  "train_size": 13840,
+  "test_size": 3460,
+  "date_range": "1957-03-31 - 2014-05-31",
+  "top_features": [
+    {
+      "name": "tmax_roll_mean_7",
+      "importance": 0.4979
+    },
+    {
+      "name": "tmax_diff_7",
+      "importance": 0.1408
+    },
+    {
+      "name": "tmax_diff_1",
+      "importance": 0.0932
+    },
+    {
+      "name": "tmax_roll_mean_14",
+      "importance": 0.0896
+    },
+    {
+      "name": "tmax_lag_1",
+      "importance": 0.0684
+    }
+  ]
+}

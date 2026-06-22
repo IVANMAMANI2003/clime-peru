@@ -1,0 +1,33 @@
+{
+  "station": "AZANGARO",
+  "grupo": "grupo_4",
+  "type": "corto_plazo",
+  "mae": 0.053,
+  "rmse": 0.107,
+  "r2": 0.9931,
+  "train_size": 77145,
+  "test_size": 19287,
+  "date_range": "2026-04-17 16:02:38 - 2026-05-24 17:21:14",
+  "top_features": [
+    {
+      "name": "temp_pres_ratio",
+      "importance": 0.5821
+    },
+    {
+      "name": "temperatura_lag_1",
+      "importance": 0.2498
+    },
+    {
+      "name": "temperatura_roll_mean_5",
+      "importance": 0.0573
+    },
+    {
+      "name": "temperatura_lag_5",
+      "importance": 0.046
+    },
+    {
+      "name": "temperatura_roll_mean_15",
+      "importance": 0.0398
+    }
+  ]
+}

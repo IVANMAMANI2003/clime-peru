@@ -52,6 +52,34 @@ Consume de Kafka mediante consumer group `dashboard-consumer` para los topics `c
 - Tipo de gráfico: Líneas / Área / Ambos
 - Promedio móvil (toggle)
 
+### 🤖 Predicciones ML
+
+Tercera pestaña del dashboard que integra modelos XGBoost para predicción de temperatura:
+
+**Horizontes:**
+- **Largo Plazo**: Predice tmax (temperatura máxima) diaria usando datos históricos SENAMHI (50+ años). Features: lags (1,3,5,7 días), rolling means (3,7,14,30 días), codificación temporal cíclica.
+- **Corto Plazo**: Predice temperatura a 5-15 minutos usando datos streaming de sensores IoT. Features: lags (1,3), rolling mean (5), ratio presión/temperatura.
+
+**Interfaz:**
+- Selector de horizonte (Largo Plazo / Corto Plazo)
+- Selector de estación (dinámico según horizonte)
+- Date input para fecha de predicción (largo plazo)
+- Botón "Predecir"
+- Tarjeta de resultado con temperatura predicha, MAE, RMSE y R²
+
+**Persistencia:** Resultados guardados en `st.session_state.ml_lp_result` / `st.session_state.ml_cp_result` para mantener visibles tras auto-refresh.
+
+**Modelos disponibles** (cargados desde `ml/models/`):
+
+| Horizonte | Estación | MAE | R² |
+|-----------|----------|-----|----|
+| Largo | PUNO | 0.08°C | 0.994 |
+| Largo | AZANGARO | 0.09°C | 0.995 |
+| Largo | LAMPA | 0.07°C | 0.997 |
+| Largo | CAPACHICA | 0.08°C | 0.994 |
+| Corto | grupo_2 (LAMPA) | 0.044°C | 0.992 |
+| Corto | grupo_4 (AZANGARO) | 0.053°C | 0.993 |
+
 ### 📡 Métricas del Stack
 
 Indicadores de salud del pipeline Kafka:

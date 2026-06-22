@@ -172,14 +172,30 @@ def init_kafka_consumer() -> "queue.Queue":
         print("[Kafka] Catálogo vacío, no hay topics que consumir")
         return data_queue
 
-    consumer = KConsumer(
-        *topics,
-        bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
-        value_deserializer=lambda v: json.loads(v.decode("utf-8")),
-        auto_offset_reset="latest",
-        enable_auto_commit=True,
-        group_id="dashboard-consumer",
-    )
+    consumer = None
+    max_retries = 15
+    for attempt in range(1, max_retries + 1):
+        try:
+            consumer = KConsumer(
+                *topics,
+                bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+                value_deserializer=lambda v: json.loads(v.decode("utf-8")),
+                auto_offset_reset="latest",
+                enable_auto_commit=True,
+                group_id="dashboard-consumer",
+                request_timeout_ms=5000,
+                max_poll_interval_ms=300000,
+            )
+            print(f"[Kafka] Conectado a {KAFKA_BOOTSTRAP_SERVERS} en intento {attempt}")
+            break
+        except Exception as e:
+            wait = min(2 ** attempt, 30)
+            print(f"[Kafka] Intento {attempt}/{max_retries} falló: {e}. Reintentando en {wait}s...")
+            time.sleep(wait)
+
+    if consumer is None:
+        print("[Kafka] No se pudo conectar tras {max_retries} intentos. El dashboard funcionará sin streaming en vivo.")
+        return data_queue
 
     def _poll():
         while True:
@@ -253,84 +269,21 @@ THEMES = {
 
 
 def get_theme() -> dict:
-    return THEMES.get(st.session_state.get("theme", "dark"), THEMES["dark"])
-
-
-def get_theme_css() -> str:
-    t = get_theme()
-    is_dark = st.session_state.get("theme", "dark") == "dark"
-    shadow = "0 4px 20px rgba(0,0,0,0.4)" if is_dark else "0 2px 12px rgba(0,0,0,0.06)"
-    btn_grad = f"linear-gradient(135deg, {t['accent_cyan']}, {t['accent_blue']})"
-    return f"""
-    <style>
-        .stApp {{ background: {t['bg_primary']}; color: {t['text_primary']}; }}
-        .stTabs [data-baseweb="tab-list"] {{ gap: 8px; }}
-        .stTabs [data-baseweb="tab"] {{ 
-            background: {t['bg_secondary']}; border-radius: 8px 8px 0 0;
-            padding: 12px 20px; font-weight: 600; color: {t['text_secondary']};
-            border: 1px solid {t['border']}; border-bottom: none;
-        }}
-        .stTabs [aria-selected="true"] {{ 
-            background: {t['bg_primary']}; color: {t['accent_cyan']}; 
-            border-bottom: 2px solid {t['accent_cyan']};
-        }}
-        section[data-testid="stSidebar"] {{ 
-            background: {t['bg_secondary']}; 
-            border-right: 1px solid {t['border']};
-        }}
-        div[data-testid="stSidebarNav"] {{ background: {t['bg_primary']}; }}
-        h1, h2, h3, h4, h5, h6 {{ color: {t['text_primary']} !important; }}
-        .stAlert {{ 
-            background: {t['bg_card']}; border: 1px solid {t['border']};
-            color: {t['text_primary']}; border-radius: 8px;
-        }}
-        .st-bb, .st-bh, .st-cf {{ border-color: {t['border']} !important; }}
-        .metric-card {{
-            background: {t['bg_card']}; border-radius: 14px; padding: 20px; margin: 6px 0;
-            box-shadow: {shadow}; border: 1px solid {t['border']};
-            text-align: center; transition: all 0.25s ease;
-        }}
-        .metric-card:hover {{ transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.35); }}
-        .metric-card .label {{ color: {t['text_secondary']}; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }}
-        .metric-card .value {{ font-size: 2.4rem; font-weight: 700; margin: 2px 0; line-height: 1.1; }}
-        .metric-card .unit {{ color: {t['text_secondary']}; font-size: 0.85rem; }}
-        .metric-card .sub {{ color: {t['text_secondary']}; font-size: 0.7rem; margin-top: 6px; opacity: 0.7; }}
-        .metric-card.cold .value {{ color: {t['accent_blue']}; }}
-        .metric-card.moderate .value {{ color: {t['accent_green']}; }}
-        .metric-card.warm .value {{ color: {t['accent_orange']}; }}
-        .metric-card.hot .value {{ color: {t['accent_red']}; }}
-        .metric-card.excellent .value {{ color: {t['accent_green']}; }}
-        .metric-card.good .value {{ color: {t['accent_blue']}; }}
-        .metric-card.moderate-aq .value {{ color: {t['accent_orange']}; }}
-        .metric-card.bad .value {{ color: {t['accent_red']}; }}
-        .metric-card.hazardous .value {{ color: {t['error']}; }}
-        .stButton button {{
-            background: {btn_grad}; color: white; border: none; border-radius: 8px;
-            font-weight: 600; padding: 8px 24px; transition: all 0.2s;
-            border: 1px solid transparent;
-        }}
-        .stButton button:hover {{ transform: translateY(-1px); box-shadow: 0 4px 16px {t['accent_cyan']}44; }}
-        .stButton button[kind="secondary"] {{
-            background: {t['bg_card']}; border: 1px solid {t['border']}; color: {t['text_primary']};
-        }}
-        .st-bx {{ background: {t['bg_card']} !important; }}
-        .stSelectbox label, .stCheckbox label, .stDateInput label {{ color: {t['text_secondary']} !important; }}
-        .sidebar-header {{ 
-            background: {btn_grad}; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            font-size: 1.4rem; font-weight: 700; margin-bottom: 12px;
-        }}
-        .theme-toggle {{ display: flex; align-items: center; gap: 8px; padding: 6px 0; }}
-        .theme-toggle span {{ color: {t['text_secondary']}; font-size: 0.85rem; }}
-        .stream-status {{
-            padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
-            display: inline-flex; align-items: center; gap: 6px;
-        }}
-        .stream-status.live {{ background: {t['accent_green']}22; color: {t['accent_green']}; border: 1px solid {t['accent_green']}44; }}
-        .stream-status.paused {{ background: {t['accent_orange']}22; color: {t['accent_orange']}; border: 1px solid {t['accent_orange']}44; }}
-        .theme-label {{ font-size: 0.8rem; color: {t['text_secondary']}; margin-bottom: 4px; }}
-        hr {{ border-color: {t['border']} !important; }}
-    </style>
-    """
+    """Returns theme colors. Backgrounds are transparent (CSS handles them via data-theme)."""
+    try:
+        base = st.get_option("theme.base")
+    except Exception:
+        base = None
+    if base == "light":
+        t = dict(THEMES["light"])
+    elif base == "dark":
+        t = dict(THEMES["dark"])
+    else:
+        t = dict(THEMES["dark"])
+    t["bg_primary"] = "rgba(0,0,0,0)"
+    t["bg_card"] = "rgba(0,0,0,0)"
+    t["plotly_template"] = "plotly_white"
+    return t
 
 
 # ÔöÇÔöÇ Kafka Metrics ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ

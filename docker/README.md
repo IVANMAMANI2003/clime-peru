@@ -2,7 +2,7 @@
 
 Contiene toda la configuración de contenedores, Dockerfiles y archivos de provisioning para ejecutar el stack completo de CimaPerú.
 
-## Stack Completo (14 Servicios)
+## Stack Completo (15 Servicios)
 
 ```
 docker compose up -d   # Levanta todo
@@ -82,6 +82,8 @@ docker compose logs -f # Logs en vivo
 |---------|------------------|-----------|
 | `../artifacts` | `/app/artifacts` | jupyter, dashboard, bridges, sparks |
 | `../data` | `/app/data` | jupyter, dashboard |
+| `../ml` | `/app/ml` | jupyter, dashboard |
+| `../dashboard` | `/app/dashboard` | dashboard |
 | `grafana_data` (named) | `/var/lib/grafana` | grafana |
 | `pg_data` (named) | `/var/lib/postgresql/data` | postgres |
 

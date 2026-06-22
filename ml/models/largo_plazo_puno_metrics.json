@@ -1,0 +1,32 @@
+{
+  "station": "PUNO",
+  "type": "largo_plazo",
+  "mae": 0.081,
+  "rmse": 0.14,
+  "r2": 0.9938,
+  "train_size": 14042,
+  "test_size": 3511,
+  "date_range": "1964-03-02 - 2012-12-31",
+  "top_features": [
+    {
+      "name": "tmax_roll_mean_7",
+      "importance": 0.4729
+    },
+    {
+      "name": "tmax_diff_7",
+      "importance": 0.1347
+    },
+    {
+      "name": "tmax_diff_1",
+      "importance": 0.1301
+    },
+    {
+      "name": "tmax_lag_1",
+      "importance": 0.122
+    },
+    {
+      "name": "tmax_lag_7",
+      "importance": 0.0373
+    }
+  ]
+}

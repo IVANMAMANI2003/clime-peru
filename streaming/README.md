@@ -82,7 +82,7 @@ Procesa el stream de Kafka, normaliza timestamps, detecta anomalías y escribe a
 | Salida | Destino | Contenido |
 |--------|---------|-----------|
 | Kafka | `clima-{estacion}-anomalias` | anomalyScore, isAnomaly, anomalyType (alta/baja/normal) + todos los campos |
-| Parquet | `/app/artifacts/parquet_output/{estacion}/` | Todos los registros con campos de observabilidad |
+| Parquet | `/app/artifacts/parquet_output/{estacion}/` | Todos los registros con campos de observabilidad. **Usado por ML corto plazo** (`ml/train_corto_plazo.py`) |
 | PostgreSQL | `sensor_data_{estacion}` | id, sensor_id, estacion, department, province, district, temperatura, humedad, presion, altura, iaq, eco2, voc, calidad_aire, ts, created_at, processed_at |
 
 ### `kafka_consumer.py` — Consumidor/Productor Kafka

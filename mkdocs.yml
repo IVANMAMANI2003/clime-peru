@@ -1,0 +1,79 @@
+site_name: CliMePerú
+site_description: Sistema de Monitoreo Climático Inteligente — Big Data pipeline con Kafka, Spark Streaming, ML y observabilidad.
+site_author: Angel Sullon @asullom
+copyright: UPeU 2026
+
+theme:
+  name: material
+  language: es
+  palette:
+    - scheme: default
+      primary: teal
+      accent: amber
+      toggle:
+        icon: material/weather-night
+        name: Modo oscuro
+    - scheme: slate
+      primary: teal
+      accent: amber
+      toggle:
+        icon: material/weather-sunny
+        name: Modo claro
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - toc.follow
+    - content.code.copy
+    - content.code.annotate
+    - search.suggest
+    - search.highlight
+    - header.autohide
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.betterem
+
+extra_javascript:
+  - https://unpkg.com/mermaid@11/dist/mermaid.min.js
+
+nav:
+  - Inicio: index.md
+  - Big Data & ETL:
+      - 1. Introducción y Arquitectura: unidad-1/01_introduccion_arquitectura.md
+      - 2. ETL Batch con Spark: unidad-1/02_etl_batch_senamhi.md
+      - 3. Fundamentos Spark: unidad-1/03_fundamentos_spark.md
+      - 4. Formatos de Almacenamiento: unidad-1/04_formatos_almacenamiento.md
+  - Streaming & ML:
+      - 5. Ingesta en Tiempo Real (Kafka): unidad-2/05_ingesta_kafka.md
+      - 6. Procesamiento Streaming con Spark: unidad-2/06_streaming_spark.md
+      - 7. Observabilidad y Costos: unidad-2/07_observabilidad_costos.md
+      - 8. Pipeline de Machine Learning: unidad-2/08_ml_pipeline.md
+      - 9. Modelos y Predicción: unidad-2/09_ml_modelos.md
+  - Guías:
+      - Inicio Rápido: guias/inicio_rapido.md
+      - Contrato de Eventos: guias/contrato_eventos.md
+      - Puertos y Servicios: guias/puertos_servicios.md
+      - Troubleshooting: guias/troubleshooting.md
+      - Costos y Escalado: guias/costos_escalado.md

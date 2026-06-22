@@ -19,7 +19,7 @@ from dashboard.utils import (
     prepare_time_series, prepare_download_data, convert_df_to_csv,
     build_station_map,
     render_metric_card, get_temp_class, get_aq_class, build_gauge_chart,
-    StreamingBuffer, get_theme, get_theme_css,
+    StreamingBuffer, get_theme,
     init_kafka_consumer, drain_kafka_queue,
     fetch_kafka_metrics, render_kafka_metrics_card,
     load_sensor_config, save_sensor_config,
@@ -44,8 +44,6 @@ def init_streaming_buffer() -> StreamingBuffer:
 
 
 def init_session_state():
-    if "theme" not in st.session_state:
-        st.session_state.theme = "dark"
     if "streaming_paused" not in st.session_state:
         st.session_state.streaming_paused = False
     init_streaming_buffer()
@@ -69,7 +67,93 @@ class ClimateDashboard:
             page_icon="🌤️", layout="wide",
             initial_sidebar_state="expanded",
         )
-        st.markdown(get_theme_css(), unsafe_allow_html=True)
+        st.markdown("""
+        <style>
+        /* ── Theme Variables (synced with Streamlit native toggle) ── */
+        :root {
+            --clime-bg: #0E1117;
+            --clime-bg-card: #1E2028;
+            --clime-border: #2A2D3A;
+            --clime-text: #F8F9FA;
+            --clime-text-sec: #9CA3AF;
+        }
+        [data-theme="light"] {
+            --clime-bg: #F8FAFC;
+            --clime-bg-card: #FFFFFF;
+            --clime-border: #E2E8F0;
+            --clime-text: #0F172A;
+            --clime-text-sec: #64748B;
+        }
+        /* ── Plotly: transparent backgrounds ── */
+        .js-plotly-plot .plotly .main-svg,
+        .js-plotly .main-svg,
+        .js-plotly-plot .main-svg { background: transparent !important; }
+        .js-plotly-plot .main-svg .bg { fill: transparent !important; }
+        /* ── Plotly: text color overrides ── */
+        [data-theme="dark"] .js-plotly-plot .gtitle,
+        [data-theme="dark"] .js-plotly-plot text.gtitle { fill: #F8F9FA !important; }
+        [data-theme="dark"] .js-plotly-plot .xtitle,
+        [data-theme="dark"] .js-plotly-plot text.xtitle { fill: #9CA3AF !important; }
+        [data-theme="dark"] .js-plotly-plot .ytitle,
+        [data-theme="dark"] .js-plotly-plot text.ytitle { fill: #9CA3AF !important; }
+        [data-theme="dark"] .js-plotly-plot .xtick text { fill: #9CA3AF !important; }
+        [data-theme="dark"] .js-plotly-plot .ytick text { fill: #9CA3AF !important; }
+        [data-theme="dark"] .js-plotly-plot .legendtext tspan { fill: #9CA3AF !important; }
+        [data-theme="dark"] .js-plotly-plot .infolayer text { fill: #F8F9FA !important; }
+        [data-theme="light"] .js-plotly-plot .gtitle,
+        [data-theme="light"] .js-plotly-plot text.gtitle { fill: #0F172A !important; }
+        [data-theme="light"] .js-plotly-plot .xtitle,
+        [data-theme="light"] .js-plotly-plot text.xtitle { fill: #64748B !important; }
+        [data-theme="light"] .js-plotly-plot .ytitle,
+        [data-theme="light"] .js-plotly-plot text.ytitle { fill: #64748B !important; }
+        [data-theme="light"] .js-plotly-plot .xtick text { fill: #64748B !important; }
+        [data-theme="light"] .js-plotly-plot .ytick text { fill: #64748B !important; }
+        [data-theme="light"] .js-plotly-plot .legendtext tspan { fill: #64748B !important; }
+        [data-theme="light"] .js-plotly-plot .infolayer text { fill: #0F172A !important; }
+        /* ── Override inline dark backgrounds in light mode ── */
+        [data-theme="light"] div[style*="background:#1E2028"],
+        [data-theme="light"] div[style*="background:#0E1117"],
+        [data-theme="light"] div[style*="background:#2A2D3A"],
+        [data-theme="light"] div[style*="background-color:#1E2028"],
+        [data-theme="light"] div[style*="background-color:#0E1117"] {
+            background: #FFFFFF !important;
+            background-color: #FFFFFF !important;
+            border-color: #E2E8F0 !important;
+        }
+        [data-theme="dark"] div[style*="background:#FFFFFF"],
+        [data-theme="dark"] div[style*="background:#F8FAFC"],
+        [data-theme="dark"] div[style*="background-color:#FFFFFF"],
+        [data-theme="dark"] div[style*="background-color:#F8FAFC"] {
+            background: #1E2028 !important;
+            background-color: #1E2028 !important;
+            border-color: #2A2D3A !important;
+        }
+        /* ── Override inline text colors ── */
+        [data-theme="light"] span[style*="color:#F8F9FA"],
+        [data-theme="light"] span[style*="color:#9CA3AF"],
+        [data-theme="light"] div[style*="color:#F8F9FA"],
+        [data-theme="light"] div[style*="color:#9CA3AF"] {
+            color: #64748B !important;
+        }
+        [data-theme="dark"] span[style*="color:#0F172A"],
+        [data-theme="dark"] span[style*="color:#64748B"],
+        [data-theme="dark"] div[style*="color:#0F172A"],
+        [data-theme="dark"] div[style*="color:#64748B"] {
+            color: #9CA3AF !important;
+        }
+        /* ── Override inline border colors ── */
+        [data-theme="light"] div[style*="border-color:#2A2D3A"],
+        [data-theme="light"] div[style*="border: 1px solid #2A2D3A"],
+        [data-theme="light"] div[style*="border:1px solid #2A2D3A"] {
+            border-color: #E2E8F0 !important;
+        }
+        [data-theme="dark"] div[style*="border-color:#E2E8F0"],
+        [data-theme="dark"] div[style*="border: 1px solid #E2E8F0"],
+        [data-theme="dark"] div[style*="border:1px solid #E2E8F0"] {
+            border-color: #2A2D3A !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
         t = get_theme()
         st.markdown(f"""
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
@@ -98,18 +182,6 @@ class ClimateDashboard:
         with st.sidebar:
             st.markdown('<div class="sidebar-header">⚙️ Panel de Control</div>',
                         unsafe_allow_html=True)
-
-            # ── Theme Toggle ──
-            current_theme = st.session_state.theme
-            new_theme = st.toggle(
-                "🌙  Modo Oscuro" if current_theme == "dark" else "☀️  Modo Claro",
-                value=(current_theme == "dark"),
-                key="theme_toggle",
-            )
-            desired = "dark" if new_theme else "light"
-            if desired != current_theme:
-                st.session_state.theme = desired
-                st.rerun()
 
             st.divider()
 
@@ -716,6 +788,149 @@ class ClimateDashboard:
                           for c in display.columns if c not in ("Fecha/Hora", "Calidad")},
         )
 
+    # ── ML Predictions Tab ──────────────────────────────────────────────
+    def render_ml_predictions(self) -> None:
+        t = get_theme()
+        st.markdown("## 🤖 Predicciones ML")
+
+        try:
+            from ml.predict import list_models, predict_largo_plazo, predict_corto_plazo, get_model_info
+        except ImportError:
+            st.error("No se pudieron cargar los módulos ML. Ejecuta el entrenamiento primero.")
+            return
+
+        models = list_models()
+        if not models:
+            st.warning("No hay modelos entrenados. Ejecuta `train_largo_plazo.py` y `train_corto_plazo.py`.")
+            return
+
+        if "ml_lp_result" not in st.session_state:
+            st.session_state.ml_lp_result = None
+        if "ml_cp_result" not in st.session_state:
+            st.session_state.ml_cp_result = None
+
+        sub_tab_lp, sub_tab_cp = st.tabs(["📅 Largo Plazo (Diario)", "⚡ Corto Plazo (5 min)"])
+
+        with sub_tab_lp:
+            lp_models = [m for m in models if m["type"] == "largo_plazo"]
+            if not lp_models:
+                st.info("No hay modelos de largo plazo entrenados.")
+            else:
+                stations_lp = list({m["station"] for m in lp_models})
+                sel_station = st.selectbox("Estación", stations_lp, key="lp_station")
+                days = st.slider("Días a predecir", 1, 14, 7, key="lp_days")
+
+                if st.button("🔮 Generar predicción", key="lp_predict"):
+                    try:
+                        with st.spinner("Prediciendo..."):
+                            result = predict_largo_plazo(sel_station, days_ahead=days)
+                        st.session_state.ml_lp_result = {
+                            "result": result,
+                            "station": sel_station,
+                            "days": days,
+                        }
+                    except Exception as e:
+                        st.error(f"Error en predicción: {e}")
+
+                if st.session_state.ml_lp_result is not None:
+                    res = st.session_state.ml_lp_result
+                    rdf = res["result"]
+                    if not rdf.empty:
+                        fig = go.Figure()
+                        hist = rdf[rdf["type"] == "historical"]
+                        pred = rdf[rdf["type"] == "predicted"]
+                        fig.add_trace(go.Scatter(
+                            x=hist["date"], y=hist["value"],
+                            mode="lines", name="Histórico (tmax)",
+                            line=dict(color=t["accent_cyan"], width=2),
+                        ))
+                        fig.add_trace(go.Scatter(
+                            x=pred["date"], y=pred["value"],
+                            mode="lines+markers", name="Predicción",
+                            line=dict(color=t["accent_orange"], width=2, dash="dash"),
+                            marker=dict(size=8),
+                        ))
+                        fig.update_layout(
+                            title=f"Predicción Largo Plazo — {res['station']}",
+                            xaxis_title="Fecha", yaxis_title="Tmax (°C)",
+                            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                            template=t["plotly_template"],
+                            legend=dict(font=dict(color=t["text_secondary"])),
+                            height=400,
+                        )
+                        st.plotly_chart(fig, width="stretch")
+
+                        info = get_model_info(f"largo_plazo_{res['station'].lower()}.pkl")
+                        if "error" not in info:
+                            cols = st.columns(3)
+                            cols[0].metric("MAE", f"{info.get('mae', 'N/A')} °C")
+                            cols[1].metric("RMSE", f"{info.get('rmse', 'N/A')} °C")
+                            cols[2].metric("R²", f"{info.get('r2', 'N/A')}")
+                    else:
+                        st.warning("No se pudieron generar predicciones.")
+
+        with sub_tab_cp:
+            cp_models = [m for m in models if m["type"] == "corto_plazo"]
+            if not cp_models:
+                st.info("No hay modelos de corto plazo entrenados.")
+            else:
+                grupos_cp = {m["grupo"]: m["station"] for m in cp_models}
+                options = [f"{k} — {v}" for k, v in grupos_cp.items()]
+                sel_cp = st.selectbox("Estación", options, key="cp_station")
+                sel_grupo = sel_cp.split(" — ")[0]
+                minutes = st.slider("Minutos a predecir", 1, 15, 5, key="cp_minutes")
+
+                if st.button("🔮 Generar predicción", key="cp_predict"):
+                    try:
+                        with st.spinner("Prediciendo..."):
+                            result = predict_corto_plazo(sel_grupo, minutes_ahead=minutes)
+                        st.session_state.ml_cp_result = {
+                            "result": result,
+                            "grupo": sel_grupo,
+                            "station": grupos_cp.get(sel_grupo, sel_grupo),
+                            "minutes": minutes,
+                        }
+                    except Exception as e:
+                        st.error(f"Error en predicción: {e}")
+
+                if st.session_state.ml_cp_result is not None:
+                    res = st.session_state.ml_cp_result
+                    rdf = res["result"]
+                    if not rdf.empty:
+                        fig = go.Figure()
+                        actual = rdf[rdf["type"] == "actual"]
+                        pred = rdf[rdf["type"] == "predicted"]
+                        fig.add_trace(go.Scatter(
+                            x=actual["ts"], y=actual["value"],
+                            mode="lines+markers", name="Actual",
+                            line=dict(color=t["accent_cyan"], width=2),
+                            marker=dict(size=4),
+                        ))
+                        fig.add_trace(go.Scatter(
+                            x=pred["ts"], y=pred["value"],
+                            mode="lines+markers", name="Predicción",
+                            line=dict(color=t["accent_green"], width=2, dash="dash"),
+                            marker=dict(size=6, symbol="diamond"),
+                        ))
+                        fig.update_layout(
+                            title=f"Predicción Corto Plazo — {res['station']}",
+                            xaxis_title="Tiempo", yaxis_title="Temperatura (°C)",
+                            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                            template=t["plotly_template"],
+                            legend=dict(font=dict(color=t["text_secondary"])),
+                            height=400,
+                        )
+                        st.plotly_chart(fig, width="stretch")
+
+                        info = get_model_info(f"corto_plazo_{res['grupo']}.pkl")
+                        if "error" not in info:
+                            cols = st.columns(3)
+                            cols[0].metric("MAE", f"{info.get('mae', 'N/A')} °C")
+                            cols[1].metric("RMSE", f"{info.get('rmse', 'N/A')} °C")
+                            cols[2].metric("R²", f"{info.get('r2', 'N/A')}")
+                    else:
+                        st.warning("No hay datos suficientes para predecir.")
+
     # ── About ───────────────────────────────────────────────────────────
     def render_about(self) -> None:
         t = get_theme()
@@ -734,7 +949,7 @@ class ClimateDashboard:
         df, data_loaded = self.load_data()
         self.render_sidebar()
 
-        tab1, tab2 = st.tabs(["📊 Datos Históricos", "⏱️ Tiempo Real"])
+        tab1, tab2, tab3 = st.tabs(["📊 Datos Históricos", "⏱️ Tiempo Real", "🤖 Predicciones ML"])
 
         with tab1:
             if data_loaded and not self._df.empty:
@@ -744,6 +959,9 @@ class ClimateDashboard:
 
         with tab2:
             self.render_realtime()
+
+        with tab3:
+            self.render_ml_predictions()
 
         self.render_about()
 
