@@ -1,0 +1,2035 @@
+
+<!doctype html>
+<html lang="es" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Sistema de Monitoreo Climático Inteligente — Big Data pipeline con Kafka, Spark Streaming, ML y observabilidad.">
+      
+      
+        <meta name="author" content="Angel Sullon @asullom">
+      
+      
+      
+        <link rel="prev" href="../08_ml_pipeline/">
+      
+      
+        <link rel="next" href="../../guias/inicio_rapido/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>9. Modelos y Predicción - CliMePerú</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#9-modelos-ml-y-resultados" class="md-skip">
+          Saltar a contenido
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Cabecera">
+    <a href="../.." title="CliMePerú" class="md-header__button md-logo" aria-label="CliMePerú" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            CliMePerú
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              9. Modelos y Predicción
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="amber"  aria-label="Modo oscuro"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Modo oscuro" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="amber"  aria-label="Modo claro"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Modo claro" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Búsqueda" placeholder="Búsqueda" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Buscar">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Limpiar" aria-label="Limpiar" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Inicializando búsqueda
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Pestañas" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Inicio
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../unidad-1/01_introduccion_arquitectura/" class="md-tabs__link">
+          
+  
+  
+  Big Data & ETL
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../05_ingesta_kafka/" class="md-tabs__link">
+          
+  
+  
+  Streaming & ML
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guias/inicio_rapido/" class="md-tabs__link">
+          
+  
+  
+  Guías
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navegación" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="CliMePerú" class="md-nav__button md-logo" aria-label="CliMePerú" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    CliMePerú
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inicio
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Big Data & ETL
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Big Data & ETL
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../unidad-1/01_introduccion_arquitectura/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    1. Introducción y Arquitectura
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../unidad-1/02_etl_batch_senamhi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2. ETL Batch con Spark
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../unidad-1/03_fundamentos_spark/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    3. Fundamentos Spark
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../unidad-1/04_formatos_almacenamiento/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    4. Formatos de Almacenamiento
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Streaming & ML
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Streaming & ML
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../05_ingesta_kafka/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    5. Ingesta en Tiempo Real (Kafka)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../06_streaming_spark/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    6. Procesamiento Streaming con Spark
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../07_observabilidad_costos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    7. Observabilidad y Costos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../08_ml_pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    8. Pipeline de Machine Learning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    9. Modelos y Predicción
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    9. Modelos y Predicción
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Tabla de contenidos">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Tabla de contenidos
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#91-modelos-de-largo-plazo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.1 Modelos de Largo Plazo
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9.1 Modelos de Largo Plazo">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#estaciones-entrenadas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Estaciones Entrenadas
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hiperparametros" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hiperparámetros
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resultados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resultados
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interpretacion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interpretación
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#curva-de-aprendizaje" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Curva de Aprendizaje
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#92-modelos-de-corto-plazo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.2 Modelos de Corto Plazo
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9.2 Modelos de Corto Plazo">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#grupos-entrenados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Grupos Entrenados
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hiperparametros_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hiperparámetros
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resultados_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resultados
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#analisis-de-grupo_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Análisis de grupo_3
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#93-features-por-importancia" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.3 Features por Importancia
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9.3 Features por Importancia">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#largo-plazo-puno" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Largo Plazo (PUNO)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#corto-plazo-grupo_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Corto Plazo (grupo_2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#94-prediccion-desde-el-dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.4 Predicción desde el Dashboard
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9.4 Predicción desde el Dashboard">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#interfaz-de-usuario" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interfaz de Usuario
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#persistencia-de-resultados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Persistencia de Resultados
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#95-limitaciones" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.5 Limitaciones
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#96-mejoras-propuestas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.6 Mejoras Propuestas
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9.6 Mejoras Propuestas">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#acciones-inmediatas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acciones Inmediatas
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#acciones-a-mediano-plazo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acciones a Mediano Plazo
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#acciones-a-largo-plazo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acciones a Largo Plazo
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guías
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guías
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guias/inicio_rapido/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inicio Rápido
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guias/contrato_eventos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contrato de Eventos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guias/puertos_servicios/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Puertos y Servicios
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guias/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guias/costos_escalado/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Costos y Escalado
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Tabla de contenidos">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Tabla de contenidos
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#91-modelos-de-largo-plazo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.1 Modelos de Largo Plazo
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9.1 Modelos de Largo Plazo">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#estaciones-entrenadas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Estaciones Entrenadas
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hiperparametros" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hiperparámetros
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resultados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resultados
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interpretacion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interpretación
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#curva-de-aprendizaje" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Curva de Aprendizaje
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#92-modelos-de-corto-plazo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.2 Modelos de Corto Plazo
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9.2 Modelos de Corto Plazo">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#grupos-entrenados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Grupos Entrenados
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hiperparametros_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hiperparámetros
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resultados_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resultados
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#analisis-de-grupo_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Análisis de grupo_3
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#93-features-por-importancia" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.3 Features por Importancia
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9.3 Features por Importancia">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#largo-plazo-puno" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Largo Plazo (PUNO)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#corto-plazo-grupo_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Corto Plazo (grupo_2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#94-prediccion-desde-el-dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.4 Predicción desde el Dashboard
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9.4 Predicción desde el Dashboard">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#interfaz-de-usuario" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interfaz de Usuario
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#persistencia-de-resultados" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Persistencia de Resultados
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#95-limitaciones" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.5 Limitaciones
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#96-mejoras-propuestas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.6 Mejoras Propuestas
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9.6 Mejoras Propuestas">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#acciones-inmediatas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acciones Inmediatas
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#acciones-a-mediano-plazo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acciones a Mediano Plazo
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#acciones-a-largo-plazo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acciones a Largo Plazo
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="9-modelos-ml-y-resultados">9. Modelos ML y Resultados<a class="headerlink" href="#9-modelos-ml-y-resultados" title="Permanent link">&para;</a></h1>
+<h2 id="91-modelos-de-largo-plazo">9.1 Modelos de Largo Plazo<a class="headerlink" href="#91-modelos-de-largo-plazo" title="Permanent link">&para;</a></h2>
+<h3 id="estaciones-entrenadas">Estaciones Entrenadas<a class="headerlink" href="#estaciones-entrenadas" title="Permanent link">&para;</a></h3>
+<p>Se entrenaron modelos para las 4 estaciones SENAMHI con más de 1000 registros de temperatura máxima:</p>
+<table>
+<thead>
+<tr>
+<th>Estación</th>
+<th>Registros</th>
+<th>Período</th>
+<th>Departamento</th>
+<th>Provincia</th>
+<th>Distrito</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PUNO</td>
+<td>17,867</td>
+<td>1964-2012</td>
+<td>PUNO</td>
+<td>PUNO</td>
+<td>PUNO</td>
+</tr>
+<tr>
+<td>AZANGARO</td>
+<td>8,234</td>
+<td>1964-2012</td>
+<td>PUNO</td>
+<td>AZANGARO</td>
+<td>AZANGARO</td>
+</tr>
+<tr>
+<td>LAMPA</td>
+<td>6,891</td>
+<td>1965-2012</td>
+<td>PUNO</td>
+<td>LAMPA</td>
+<td>LAMPA</td>
+</tr>
+<tr>
+<td>CAPACHICA</td>
+<td>4,567</td>
+<td>1965-2012</td>
+<td>PUNO</td>
+<td>PUNO</td>
+<td>CAPACHICA</td>
+</tr>
+</tbody>
+</table>
+<h3 id="hiperparametros">Hiperparámetros<a class="headerlink" href="#hiperparametros" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">model</span> <span class="o">=</span> <span class="n">XGBRegressor</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">n_estimators</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">max_depth</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">subsample</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">colsample_bytree</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span>
+</code></pre></div>
+<h3 id="resultados">Resultados<a class="headerlink" href="#resultados" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Estación</th>
+<th>MAE (°C)</th>
+<th>RMSE (°C)</th>
+<th>R²</th>
+<th>Error Relativo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>PUNO</strong></td>
+<td>0.08</td>
+<td>0.20</td>
+<td><strong>0.994</strong></td>
+<td>0.4%</td>
+</tr>
+<tr>
+<td><strong>AZANGARO</strong></td>
+<td>0.09</td>
+<td>0.20</td>
+<td><strong>0.995</strong></td>
+<td>0.5%</td>
+</tr>
+<tr>
+<td><strong>LAMPA</strong></td>
+<td>0.07</td>
+<td>0.16</td>
+<td><strong>0.997</strong></td>
+<td>0.4%</td>
+</tr>
+<tr>
+<td><strong>CAPACHICA</strong></td>
+<td>0.08</td>
+<td>0.18</td>
+<td><strong>0.994</strong></td>
+<td>0.4%</td>
+</tr>
+</tbody>
+</table>
+<h3 id="interpretacion">Interpretación<a class="headerlink" href="#interpretacion" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>R² &gt; 0.99</strong> en los 4 modelos: la temperatura máxima diaria en el altiplano peruano es altamente predecible debido a su fuerte componente estacional.</li>
+<li><strong>MAE &lt; 0.10°C</strong>: el error promedio es inferior a una décima de grado.</li>
+<li><strong>LAMPA</strong> presenta el mejor rendimiento (MAE=0.07°C, R²=0.997), posiblemente por tener menor variabilidad climática.</li>
+</ul>
+<h3 id="curva-de-aprendizaje">Curva de Aprendizaje<a class="headerlink" href="#curva-de-aprendizaje" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Rendimiento vs Tamaño del Dataset (PUNO):
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  - 25% datos:  MAE=0.15°C, R²=0.982
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  - 50% datos:  MAE=0.11°C, R²=0.989
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  - 75% datos:  MAE=0.09°C, R²=0.992
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  - 100% datos: MAE=0.08°C, R²=0.994
+</code></pre></div>
+<h2 id="92-modelos-de-corto-plazo">9.2 Modelos de Corto Plazo<a class="headerlink" href="#92-modelos-de-corto-plazo" title="Permanent link">&para;</a></h2>
+<h3 id="grupos-entrenados">Grupos Entrenados<a class="headerlink" href="#grupos-entrenados" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Grupo</th>
+<th>Estación</th>
+<th>Observaciones</th>
+<th>Período</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>grupo_2</td>
+<td>LAMPA</td>
+<td>10,000</td>
+<td>~2 meses streaming</td>
+</tr>
+<tr>
+<td>grupo_3</td>
+<td>PUNO</td>
+<td>10,000</td>
+<td>~2 meses streaming</td>
+</tr>
+<tr>
+<td>grupo_4</td>
+<td>AZANGARO</td>
+<td>10,000</td>
+<td>~2 meses streaming</td>
+</tr>
+</tbody>
+</table>
+<h3 id="hiperparametros_1">Hiperparámetros<a class="headerlink" href="#hiperparametros_1" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">model</span> <span class="o">=</span> <span class="n">XGBRegressor</span><span class="p">(</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">n_estimators</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">max_depth</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">subsample</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">colsample_bytree</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="p">)</span>
+</code></pre></div>
+<h3 id="resultados_1">Resultados<a class="headerlink" href="#resultados_1" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Grupo / Estación</th>
+<th>MAE (°C)</th>
+<th>RMSE (°C)</th>
+<th>R²</th>
+<th>Estado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>grupo_2 / LAMPA</strong></td>
+<td><strong>0.044</strong></td>
+<td><strong>0.106</strong></td>
+<td><strong>0.992</strong></td>
+<td>✅ OK</td>
+</tr>
+<tr>
+<td>grupo_3 / PUNO</td>
+<td>6.355</td>
+<td>9.810</td>
+<td>-1.410</td>
+<td>❌ Sensor defectuoso</td>
+</tr>
+<tr>
+<td><strong>grupo_4 / AZANGARO</strong></td>
+<td><strong>0.053</strong></td>
+<td><strong>0.096</strong></td>
+<td><strong>0.993</strong></td>
+<td>✅ OK</td>
+</tr>
+</tbody>
+</table>
+<h3 id="analisis-de-grupo_3">Análisis de grupo_3<a class="headerlink" href="#analisis-de-grupo_3" title="Permanent link">&para;</a></h3>
+<p>El sensor del grupo_3 presenta dos anomalías que impiden el entrenamiento confiable:</p>
+<ol>
+<li><strong>Presión atmosférica</strong>: ~186 hPa (valor esperado: ~646 hPa en Puno, altitud 3820 msnm).</li>
+<li><strong>Temperatura constante</strong>: oscila alrededor de -0.06°C sin variación significativa.</li>
+</ol>
+<p>Esto produce:
+- <strong>R² negativo (-1.41)</strong>: el modelo es peor que predecir siempre el promedio.
+- <strong>MAE elevado (6.36°C)</strong>: error 100x mayor que los otros grupos.
+- <strong>Recomendación</strong>: reemplazar el sensor físico o aplicar filtros de calidad antes del entrenamiento.</p>
+<h2 id="93-features-por-importancia">9.3 Features por Importancia<a class="headerlink" href="#93-features-por-importancia" title="Permanent link">&para;</a></h2>
+<h3 id="largo-plazo-puno">Largo Plazo (PUNO)<a class="headerlink" href="#largo-plazo-puno" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Importancia (Gain)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tmax_lag_1</code></td>
+<td>0.38</td>
+</tr>
+<tr>
+<td><code>tmax_rolling_mean_7</code></td>
+<td>0.18</td>
+</tr>
+<tr>
+<td><code>tmax_lag_7</code></td>
+<td>0.12</td>
+</tr>
+<tr>
+<td><code>month_sin</code></td>
+<td>0.10</td>
+</tr>
+<tr>
+<td><code>tmax_rolling_mean_30</code></td>
+<td>0.08</td>
+</tr>
+<tr>
+<td><code>trend_7_30</code></td>
+<td>0.06</td>
+</tr>
+<tr>
+<td><code>tmax_diff_30d</code></td>
+<td>0.04</td>
+</tr>
+<tr>
+<td><code>day_sin</code></td>
+<td>0.02</td>
+</tr>
+<tr>
+<td><code>season</code></td>
+<td>0.02</td>
+</tr>
+</tbody>
+</table>
+<h3 id="corto-plazo-grupo_2">Corto Plazo (grupo_2)<a class="headerlink" href="#corto-plazo-grupo_2" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Importancia (Gain)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>temp_lag_1</code></td>
+<td>0.52</td>
+</tr>
+<tr>
+<td><code>temp_rolling_mean_5</code></td>
+<td>0.22</td>
+</tr>
+<tr>
+<td><code>temp_lag_3</code></td>
+<td>0.14</td>
+</tr>
+<tr>
+<td><code>hour_sin</code></td>
+<td>0.06</td>
+</tr>
+<tr>
+<td><code>presion_temp_ratio</code></td>
+<td>0.04</td>
+</tr>
+<tr>
+<td><code>hour_cos</code></td>
+<td>0.02</td>
+</tr>
+</tbody>
+</table>
+<h2 id="94-prediccion-desde-el-dashboard">9.4 Predicción desde el Dashboard<a class="headerlink" href="#94-prediccion-desde-el-dashboard" title="Permanent link">&para;</a></h2>
+<h3 id="interfaz-de-usuario">Interfaz de Usuario<a class="headerlink" href="#interfaz-de-usuario" title="Permanent link">&para;</a></h3>
+<p>La pestaña <strong>🤖 Predicciones ML</strong> ofrece:</p>
+<ol>
+<li><strong>Selector de Horizonte</strong>: Largo Plazo / Corto Plazo.</li>
+<li><strong>Selector de Estación</strong>: Dinámico según el horizonte (filtra modelos disponibles).</li>
+<li><strong>Selector de Fecha</strong>: Date input para el día de predicción (solo largo plazo).</li>
+<li><strong>Botón Predecir</strong>: Ejecuta la inferencia.</li>
+<li><strong>Resultados</strong>: Tarjeta con:</li>
+<li>Temperatura predicha</li>
+<li>MAE del modelo</li>
+<li>RMSE del modelo</li>
+<li>R² del modelo</li>
+<li>Timestamp de la predicción</li>
+</ol>
+<h3 id="persistencia-de-resultados">Persistencia de Resultados<a class="headerlink" href="#persistencia-de-resultados" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># En st.session_state para mantener visibles tras auto-refresh</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">st</span><span class="o">.</span><span class="n">session_state</span><span class="o">.</span><span class="n">ml_lp_result</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="s2">&quot;temperatura&quot;</span><span class="p">:</span> <span class="mf">18.5</span><span class="p">,</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="s2">&quot;mae&quot;</span><span class="p">:</span> <span class="mf">0.08</span><span class="p">,</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="s2">&quot;rmse&quot;</span><span class="p">:</span> <span class="mf">0.20</span><span class="p">,</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="s2">&quot;r2&quot;</span><span class="p">:</span> <span class="mf">0.994</span><span class="p">,</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="s2">&quot;2026-06-22 12:00:00&quot;</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="p">}</span>
+</code></pre></div>
+<h2 id="95-limitaciones">9.5 Limitaciones<a class="headerlink" href="#95-limitaciones" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Limitación</th>
+<th>Impacto</th>
+<th>Mitigación Propuesta</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Solo 4 estaciones SENAMHI con datos suficientes</td>
+<td>Cobertura geográfica limitada</td>
+<td>Incorporar más estaciones históricas</td>
+</tr>
+<tr>
+<td>Sensor grupo_3 defectuoso</td>
+<td>Sin modelo corto plazo para PUNO</td>
+<td>Reemplazar sensor o filtrar datos</td>
+</tr>
+<tr>
+<td>Sin re-entrenamiento automático</td>
+<td>Modelos desactualizados</td>
+<td>Cron job o botón en dashboard</td>
+</tr>
+<tr>
+<td>Horizonte corto plazo limitado a 5-15 min</td>
+<td>Predicción de muy corto alcance</td>
+<td>Agregar modelos de series temporales</td>
+</tr>
+<tr>
+<td>XGBoost como único algoritmo</td>
+<td>Sin comparación con otros modelos</td>
+<td>Implementar ensemble (RF + LSTM)</td>
+</tr>
+<tr>
+<td>Sin features externos</td>
+<td>Sin viento, radiación, precipitación</td>
+<td>Integrar fuentes abiertas</td>
+</tr>
+</tbody>
+</table>
+<h2 id="96-mejoras-propuestas">9.6 Mejoras Propuestas<a class="headerlink" href="#96-mejoras-propuestas" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>graph LR
+    subgraph Now["Estado Actual"]
+        A[XGBoost básico]
+        B[4 estaciones LP]
+        C[2 estaciones CP OK]
+        D[Entrenamiento manual]
+    end
+
+    subgraph Next["Próximos Pasos"]
+        E[Ensemble XGBoost + RF]
+        F[+10 estaciones LP]
+        G[Re-entrenamiento automático]
+        H[Intervalos de confianza]
+    end
+
+    subgraph Future["Visión Futura"]
+        I[Deep Learning LSTM]
+        J[Todas las estaciones]
+        K[CI/CD para modelos]
+        L[Predicción multi-variable]
+    end
+
+    A --&gt; E --&gt; I
+    B --&gt; F --&gt; J
+    D --&gt; G --&gt; K
+    C --&gt; H --&gt; L</code></pre>
+<h3 id="acciones-inmediatas">Acciones Inmediatas<a class="headerlink" href="#acciones-inmediatas" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Re-entrenamiento programado</strong>: Agregar cron job en contenedor separado.</li>
+<li><strong>Dashboard admin</strong>: Botón para re-entrenar desde la UI.</li>
+<li><strong>Más estaciones</strong>: Incorporar datos de estaciones SENAMHI adicionales.</li>
+<li><strong>Features climáticos externos</strong>: API de viento, radiación solar.</li>
+</ol>
+<h3 id="acciones-a-mediano-plazo">Acciones a Mediano Plazo<a class="headerlink" href="#acciones-a-mediano-plazo" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Ensemble de modelos</strong>: XGBoost + Random Forest + LSTM.</li>
+<li><strong>Spark MLlib</strong>: Migrar entrenamiento para escalar a cientos de estaciones.</li>
+<li><strong>Intervalos de confianza</strong>: Usar predicción por cuantiles.</li>
+<li><strong>Detección de sensores defectuosos</strong>: Basada en residuales de predicción.</li>
+</ol>
+<h3 id="acciones-a-largo-plazo">Acciones a Largo Plazo<a class="headerlink" href="#acciones-a-largo-plazo" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Pipeline CI/CD</strong>: Validación y deploy automático de nuevos modelos.</li>
+<li><strong>Deep Learning</strong>: LSTM para series temporales multi-variable.</li>
+<li><strong>Dashboard predictivo completo</strong>: Predicción 7 días con ensemble.</li>
+<li><strong>Alertas predictivas</strong>: Notificaciones basadas en predicciones de anomalías.</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Volver al principio
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      UPeU 2026
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.expand", "navigation.top", "navigation.tabs", "navigation.tabs.sticky", "toc.follow", "content.code.copy", "content.code.annotate", "search.suggest", "search.highlight", "header.autohide"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copiado al portapapeles", "clipboard.copy": "Copiar al portapapeles", "search.result.more.one": "1 m\u00e1s en esta p\u00e1gina", "search.result.more.other": "# m\u00e1s en esta p\u00e1gina", "search.result.none": "No se encontraron documentos", "search.result.one": "1 documento encontrado", "search.result.other": "# documentos encontrados", "search.result.placeholder": "Teclee para comenzar b\u00fasqueda", "search.result.term.missing": "Falta", "select.version": "Seleccionar versi\u00f3n"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="https://unpkg.com/mermaid@11/dist/mermaid.min.js"></script>
+      
+    
+  </body>
+</html>

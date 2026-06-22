@@ -1,0 +1,12 @@
+{
+  "name": "climeperu-doc",
+  "version": "1.0.0",
+  "description": "Documentacion Unidad 2 - ClimePeru Pipeline Streaming",
+  "main": "generate-docx.js",
+  "scripts": {
+    "generate": "node generate-docx.js"
+  },
+  "dependencies": {
+    "docx": "^8.5.0"
+  }
+}
