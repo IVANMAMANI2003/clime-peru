@@ -1,0 +1,12 @@
+{
+  "name": "climeperu-pptx",
+  "version": "1.0.0",
+  "description": "Generador de presentación CliMePerú",
+  "main": "generar_pptx.js",
+  "scripts": {
+    "build": "node generar_pptx.js"
+  },
+  "dependencies": {
+    "pptxgenjs": "^3.12.0"
+  }
+}
